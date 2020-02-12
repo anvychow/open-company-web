@@ -626,19 +626,31 @@
 
 ;; Change service actions
 
+(defn- board-slug-to-refresh
+  "Return the slug of the board/container we need to reload in case a CS message comes in.
+  It changes depending where we are:
+  - when in expanded post use the utility fn: oc.web.lib.utils/back-to
+  - when in section or container: (oc.web.router/current-board-slug)"
+  [org-data]
+  (if (router/current-activity-id)
+    (utils/back-to org-data)
+    (router/current-board-slug)))
+
 (defn ws-change-subscribe []
   (ws-cc/subscribe :container/change
     (fn [data]
       (let [change-data (:data data)
             section-uuid (:item-id change-data)
-            change-type (:change-type change-data)]
+            change-type (:change-type change-data)
+            org-data (dis/org-data)
+            current-board-slug (board-slug-to-refresh org-data)]
         ;; Refresh AP if user is looking at it
-        (when (= (router/current-board-slug) "all-posts")
-          (all-posts-get (dis/org-data)))
-        (when (= (router/current-board-slug) "bookmarks")
-          (bookmarks-get (dis/org-data)))
-        (when (= (router/current-board-slug) "inbox")
-          (inbox-get (dis/org-data))))))
+        (when (= current-board-slug "all-posts")
+          (all-posts-get org-data))
+        (when (= current-board-slug "bookmarks")
+          (bookmarks-get org-data))
+        (when (= current-board-slug "inbox")
+          (inbox-get org-data)))))
   (ws-cc/subscribe :entry/inbox-action
     (fn [data]
       ;; Only in case the event is from/to this user:
@@ -691,7 +703,8 @@
                               (fn [{:keys [success]}]
                                 (when success
                                   (dis/dispatch! [:mark-unread (router/current-org-slug) {:uuid activity-uuid
-                                                                                          :board-uuid section-uuid}]))))]
+                                                                                          :board-uuid section-uuid}]))))
+            current-board-slug (board-slug-to-refresh org-data)]
         (when (= change-type :delete)
           (dis/dispatch! [:activity-delete (router/current-org-slug) {:uuid activity-uuid}]))
         ;; Refresh the AP in case of items added or removed
@@ -701,11 +714,11 @@
           (api/get-org (utils/link-for (:links org-data) "self") refresh-org-data-cb)
           ;; Refresh specific containers/sections
           (cond
-            (= (router/current-board-slug) "inbox")
+            (= current-board-slug "inbox")
             (inbox-get org-data dispatch-unread)
-            (= (router/current-board-slug) "all-posts")
+            (= current-board-slug "all-posts")
             (all-posts-get org-data dispatch-unread)
-            (= (router/current-board-slug) "bookmarks")
+            (= current-board-slug "bookmarks")
             (bookmarks-get org-data dispatch-unread)
             :else
             (sa/section-change section-uuid dispatch-unread)))
