@@ -288,10 +288,7 @@
   (if (or (not (:direct board-data))
           (not (seq active-users)))
     board-data
-    (let [calc-name (fn [users name-fn user]
-                      (let [user-id (if (map? user) (:user-id user) user)]
-                        (name-fn (get users user-id))))
-          except-me (remove nil?
+    (let [except-me (remove nil?
                      (map #(when (and (not= % (jwt/user-id))
                                       (not= (:user-id %) (jwt/user-id)))
                              (if (map? %)
