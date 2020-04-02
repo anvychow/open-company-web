@@ -4,7 +4,6 @@
             [org.martinklepsch.derivatives :as drv]
             [oc.web.urls :as oc-urls]
             [oc.web.router :as router]
-            [oc.lib.user :as user-lib]
             [oc.web.lib.utils :as utils]
             [oc.web.actions.section :as section-actions]
             [oc.web.actions.nav-sidebar :as nav-actions]
@@ -18,7 +17,7 @@
 (defn- sort-users [user-id users]
   (let [{:keys [self-user other-users]}
          (group-by #(if (= (:user-id %) user-id) :self-user :other-users) users)
-        sorted-other-users (sort-by user-lib/name-for other-users)]
+        sorted-other-users (sort-by :short-name other-users)]
     (remove nil? (concat self-user sorted-other-users))))
 
 (defn- toggle-user [s u]
@@ -52,9 +51,10 @@
   (let [all-users @(drv/get-ref s :active-users)
         current-user-data @(drv/get-ref s :current-user-data)
         authors (concat [(:user-id current-user-data)] (vec @(::users s)))
-        selected-users-data (map all-users @(::users s))
+        selected-users-data (sort-by :short-name (map all-users @(::users s)))
+        notif-board-name (str (clojure.string/join ", " (sort (map :short-name selected-users-data))))
         users (concat [current-user-data] selected-users-data)
-        direct-name (str (clojure.string/join ", " (mapv user-lib/name-for (butlast users))))]
+        direct-name (str (clojure.string/join ", " (map :name selected-users-data)))]
     (section-actions/section-save
       {:name direct-name
        :access :private
@@ -64,7 +64,7 @@
       (fn [board-data]
         (reset! (::saving s) false)
         (notification-actions/show-notification {:title "Direct discussion created"
-                                                 :description (str "Direct discussion with " direct-name " creation succeded.")
+                                                 :description (str "Direct discussion with " notif-board-name " was successfully created.")
                                                  :dismiss true
                                                  :expire 3
                                                  :id :direct-create-success})
@@ -148,7 +148,7 @@
                        :key (str "direct-picker-selected-" user-id)}
                       (user-avatar-image u)
                       [:span.direct-picker-selected-user-name
-                        (user-lib/short-name-for u)]])
+                        (:short-name u)]])
                   (when (not= (count @(::users s)) (count active-users))
                     [:input.direct-picker-search-field-input
                       {:class (when-not (seq @(::users s)) "empty")
@@ -181,4 +181,4 @@
                     (carrot-checkbox {:selected selected?})
                     (user-avatar-image u)
                     [:span.direct-picker-user
-                      (user-lib/name-for u)]])]])]]]))
+                      (:name u)]])]])]]]))

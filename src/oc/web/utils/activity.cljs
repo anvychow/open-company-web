@@ -2,7 +2,6 @@
   (:require [cuerdas.core :as s]
             [cljs-time.format :as time-format]
             [oc.web.lib.jwt :as jwt]
-            [oc.lib.user :as user-lib]
             [oc.web.router :as router]
             [oc.web.dispatcher :as dis]
             [oc.web.lib.utils :as utils]
@@ -299,13 +298,9 @@
                                (merge % (get active-users (:user-id %)))
                                (get active-users %)))
                       (:authors board-data)))
-          with-names (map #(-> %
-                            (assoc :short-name (calc-name active-users user-lib/short-name-for %))
-                            (assoc :name (calc-name active-users user-lib/name-for %)))
-                      except-me)
-          sorted-users (sort-by :short-name with-names)
-          complete-name (clojure.string/join ", " (mapv :name sorted-users))
-          board-name (clojure.string/join ", " (mapv :short-name sorted-users))]
+          sorted-users (sort-by :short-name except-me)
+          complete-name (clojure.string/join ", " (map :name (sort-by :name except-me)))
+          board-name (clojure.string/join ", " (map :short-name sorted-users))]
       (-> board-data
        (assoc :name board-name)
        (assoc :direct-users sorted-users)

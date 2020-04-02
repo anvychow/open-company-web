@@ -2,6 +2,7 @@
   (:require [taoensso.timbre :as timbre]
             [oc.web.dispatcher :as dispatcher]
             [oc.web.lib.jwt :as j]
+            [oc.lib.user :as user-lib]
             [oc.web.utils.activity :as au]
             [oc.web.utils.mention :as mu]
             [oc.web.lib.utils :as utils]))
@@ -16,7 +17,11 @@
 
 (defmethod dispatcher/action :active-users
   [db [_ org-slug active-users-data]]
-  (if-let [users (-> active-users-data :collection :items)]
+  (if-let [users (map (fn [u]
+                        (-> u
+                         (update :name #(or % (user-lib/name-for u)))
+                         (update :short-name #(or % (user-lib/short-name-for u)))))
+                  (-> active-users-data :collection :items))]
     (let [users-map (zipmap (map :user-id users) users)
           org-boards-key (concat (dispatcher/org-data-key org-slug) [:boards])
           next-db* (update-in db org-boards-key #(mapv (fn [board] (au/fix-direct-board board users-map)) %))
