@@ -14,20 +14,30 @@
             [oc.web.components.ui.user-avatar :refer (user-avatar-image)]))
 
 (rum/defc user-info-view < rum/static
-  [{:keys [user-data user-id my-profile? hide-buttons]}]
-  (let [timezone-location-string (user-utils/timezone-location-string user-data)
-        subline-string (clojure.string/trim
-                        (str (:title user-data) " " timezone-location-string))]
+  [{:keys [user-data user-id my-profile? hide-buttons otf above? inline?]}]
+  (let [timezone-location-string (user-utils/timezone-location-string user-data)]
     [:div.user-info-view
+      {:class (utils/class-set {:otf otf
+                                :inline inline?
+                                :above above?})}
       [:div.user-info-header
         (user-avatar-image user-data)
         [:div.user-info-right
           [:div.user-info-name
             (user-lib/name-for user-data)]
-          (when (seq subline-string)
+          (when (seq (:title user-data))
+            [:div.user-info-line
+              (:title user-data)])
+          (cond
+            (seq timezone-location-string)
             [:div.user-info-subline
-              {:class (when (:slack-icon user-data) "slack-icon")}
-              subline-string])]]
+              timezone-location-string]
+            (seq (:slack-username user-data))
+            [:div.user-info-subline.slack-icon
+              (:slack-username user-data)]
+            (seq (:email user-data))
+            [:div.user-info-subline
+              (:email user-data)])]]
       (when-not hide-buttons
         [:div.user-info-buttons.group
           [:button.mlb-reset.posts-bt
@@ -46,7 +56,12 @@
   (when (and (not (responsive/is-mobile-size?))
              portal-el
              (.-parentElement portal-el))
-    (rum/portal (user-info-view props) portal-el)))
+    (let [viewport-size (dom-utils/viewport-size)
+          pos (dom-utils/viewport-offset portal-el)
+          above? (>= (:y pos) (/ (:height viewport-size) 2))
+          next-props (merge props {:above? above?
+                                   :otf true})]
+      (rum/portal (user-info-view (assoc props :above? above?)) portal-el))))
 
 (def ^:private default-positioning {:vertical-position nil :horizontal-position nil})
 
@@ -61,11 +76,10 @@
    :y (+ padding responsive/navbar-height)})
 
 (defn- check-hover [s parent-el]
-  (let [viewport-size (dom-utils/viewport-size)
-        pos (dom-utils/viewport-offset parent-el)
+  (let [pos (dom-utils/viewport-offset parent-el)
         vertical-position (if (> (- (:y pos) (:y popup-offset)) (:height popup-size))
-                            :top
-                            :bottom)
+                            :above
+                            :below)
         horizontal-offset (if (> (:x pos) (:x popup-offset))
                             0
                             (if (neg? (:x pos))
@@ -142,12 +156,15 @@
     (let [my-profile? (= (:user-id user-data) current-user-id)
           pos @(::positioning s)
           users-info (drv/react s :users-info-hover)
-          complete-user-data (get users-info (:user-id user-data))]
+          active-user-data (get users-info (:user-id user-data))
+          complete-user-data (merge user-data active-user-data)]
       [:div.user-info-hover
         {:class (utils/class-set {:show @(::hovering s)
-                                  (:vertical-position pos) true
-                                  :left true})
+                                  (:vertical-position pos) true})
          :on-click #(when-not (utils/button-clicked? %)
                       (utils/event-stop %))
          :style {:margin-left (str (:horizontal-offset pos) "px")}}
-        (user-info-view {:user-data complete-user-data :my-profile? my-profile?})])))
+        (user-info-view {:user-data complete-user-data
+                         :inline? (not active-user-data)
+                         :hide-buttons (not active-user-data)
+                         :my-profile? my-profile?})])))

@@ -4,29 +4,16 @@ $user_info_vertical_spacing: 8;
 div.user-info-hover {
   position: absolute;
   display: none;
+  left: -50%;
 
-  div.user-info-view {
-    position: relative;
-    top: unset;
-    left: unset;
-  }
-
-  &.top {
+  &.above {
     bottom: 100%;
     padding-bottom: #{$user_info_vertical_spacing}px;
   }
 
-  &.bottom {
+  &.below {
     top: 100%;
     padding-top: #{$user_info_vertical_spacing}px;
-  }
-
-  &.left {
-    left: 0;
-  }
-
-  &.right {
-    right: 0;
   }
 
   &.show {
@@ -35,7 +22,7 @@ div.user-info-hover {
 }
 
 div.user-info-view {
-  position: absolute;
+  position: relative;
   width: #{$user_info_width}px;
   height: auto;
   z-index: #{$navbar_zindex - 1};
@@ -46,29 +33,92 @@ div.user-info-view {
   padding: 16px;
   box-shadow: var(--user-info-view-shadow);
   cursor: default;
-  top: 100%;
-  left: 0;
 
-  div.user-info-header {
-    max-width: 100%;
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    align-content: center;
-    justify-items: flex-start;
-    align-items: center;
+  &.otf {
+    position: absolute;
+    top: 100%;
+    left: -50%;
 
-    @include user-profile(32, true) {
-      margin-right: 8px;
-      white-space: nowrap;
-      flex: 0 0 auto;
+    &.above {
+      top: unset;
+      bottom: 100%;
+    }
+  }
 
-      img.user-avatar-img {
-        width: 32px!important;
-        height: 32px!important;
+  // Smaller popup version for less info
+  &.inline {
+    display: block;
+
+    div.user-info-header {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      justify-content: flex-start;
+      align-content: center;
+      justify-items: flex-start;
+      align-items: center;
+      min-height: unset;
+
+      @include user-profile(32) {
+        margin-right: 8px;
+        white-space: nowrap;
+        flex: 0 0 auto;
+      }
+
+      div.user-info-right {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        justify-items: center;
+        align-items: flex-start;
+        min-height: unset;
+
+        div.user-info-name {
+          flex: 0 1 auto;
+          margin-top: 0;
+          font-size: 16px;
+          line-height: 20px;
+          min-height: 20px;
+        }
+
+        div.user-info-line {
+          flex: 0 1 auto;
+          margin-top: 0;
+          font-size: 12px;
+          line-height: 15px;
+          min-height: 15px;
+        }
+
+        div.user-info-subline {
+          flex: 0 1 auto;
+          margin-top: 0;
+          font-size: 12px;
+          line-height: 15px;
+          min-height: 15px;
+        }
       }
     }
+
+    div.user-info-buttons {
+      height: 30px;
+
+      button.profile-bt, button.posts-bt {
+        padding: 6px 0;
+      }
+    }
+  }
+
+  div.user-info-header {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: center;
+    justify-items: center;
+    align-content: center;
+    align-items: center;
+
+    @include user-profile(56);
 
     div.user-info-right {
       flex: 0 1 auto;
@@ -77,27 +127,39 @@ div.user-info-view {
       flex-wrap: nowrap;
       justify-content: center;
       justify-items: center;
-      align-content: flex-start;
-      align-items: flex-start;
+      align-content: center;
+      align-items: center;
       max-width: calc(100% - 40px);
 
       div.user-info-name {
         @include OC_Body_Bold();
-        font-size: 16px;
-        line-height: 20px;
+        font-size: 18px;
+        line-height: 23px;
         color: var(--tooltip-color);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
         cursor: text;
         max-width: 100%;
-        flex: 1 1 auto;
+        margin-top: 8px;
+      }
+
+      div.user-info-line {
+        @include OC_Body_Book();
+        font-size: 14px;
+        line-height: 18px;
+        color: var(--tooltip-color);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: text;
+        max-width: 100%;
       }
 
       div.user-info-subline {
         @include OC_Body_Book();
-        font-size: 12px;
-        line-height: 15px;
+        font-size: 14px;
+        line-height: 18px;
         color: var(--tooltip-color);
         opacity: 0.5;
         overflow: hidden;
@@ -105,7 +167,7 @@ div.user-info-view {
         white-space: nowrap;
         cursor: text;
         max-width: 100%;
-        flex: 1 1 auto;
+        margin-top: 8px;
 
         &.slack-icon {
           &:before {
@@ -128,13 +190,13 @@ div.user-info-view {
   }
 
   div.user-info-buttons {
-    height: 30px;
+    height: 40px;
     margin-top: 8px;
 
     button.profile-bt {
       float: right;
       width: calc(50% - 4px);
-      padding: 6px 0;
+      padding: 11px 0;
       background-color: var(--tooltip-button-background);
       @include OC_Body_Bold();
       color: var(--tooltip-color);
@@ -152,7 +214,7 @@ div.user-info-view {
     button.posts-bt {
       float: left;
       width: calc(50% - 4px);
-      padding: 6px 0;
+      padding: 11px 0;
       background-color: var(--tooltip-button-background);
       @include OC_Body_Bold();
       color: var(--tooltip-color);
