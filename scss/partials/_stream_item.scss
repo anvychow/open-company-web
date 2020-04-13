@@ -283,6 +283,11 @@ div.stream-item {
         height: auto;
         width: auto;
         margin-right: 0;
+        max-width: initial;
+
+        &.has-inbox {
+          max-width: initial;
+        }
       }
 
       div.hover-container {
