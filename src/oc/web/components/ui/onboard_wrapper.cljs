@@ -240,12 +240,11 @@
                                    (-> org-editing :name clean-org-name count (<= 1)))
                               (and (not has-org?)
                                    (-> @(::why-carrot s) utils/trim seq not)))
-        continue-fn (fn [_]
-                     (when-not continue-disabled
+        continue-fn #(when-not continue-disabled
                        (reset! (::saving s) true)
                        (dis/dispatch! [:update [:org-editing :name] clean-org-name])
                        (dis/dispatch! [:input [:org-editing :why-carrot] (why-carrot-value @(::why-carrot s))])
-                       (user-actions/onboard-profile-save current-user-data edit-user-profile :org-editing)))]
+                       (user-actions/onboard-profile-save current-user-data edit-user-profile :org-editing))]
     [:div.onboard-lander.lander-profile
       [:div.main-cta
         [:div.onboard-lander-header
