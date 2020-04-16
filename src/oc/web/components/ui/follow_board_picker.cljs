@@ -33,9 +33,8 @@
 (defn- filter-board [s board q]
   (and (not= (:slug board) utils/default-drafts-board-slug)
        (or (not (seq q))
-           (and (not (utils/in? @(::boards s) (:uuid board)))
-                (or (search-board board q)
-                    (some (partial search-board board) (string/split q #"\s")))))))
+           (search-board board q)
+           (some (partial search-board board) (string/split q #"\s")))))
 
 (defn- filter-sort-boards [s boards q]
   (sort-boards (filterv #(filter-board s % (string/lower q)) boards)))
@@ -135,11 +134,16 @@
                                     (toggle-board-and-exit s b))}
                       [:span.follow-board-picker-board
                         (:name b)]]])]
-              [:button.mlb-reset.follow-board-picker-create-bt
-                {:on-click #(follow! s)
-                 :disabled (or (= @(::boards s) @(::initial-boards s))
-                               @(::saving s))
-                 :data-toggle (when-not is-mobile? "tooltip")
-                 :data-placement "top"
-                 :title "Save & close"}
-                "Follow"]])]]]))
+              [:div.follow-board-picker-footer.group
+                [:button.mlb-reset.create-board-bt
+                  {:on-click #(nav-actions/show-section-add)}
+                  "Create a new board"]
+                [:button.mlb-reset.follow-board-picker-create-bt
+                  {:on-click #(follow! s)
+                   :disabled (or (= @(::boards s) @(::initial-boards s))
+                                 @(::saving s))
+                   :data-toggle (when-not is-mobile? "tooltip")
+                   :data-container "body"
+                   :data-placement "top"
+                   :title "Save & close"}
+                  "Follow"]]])]]]))

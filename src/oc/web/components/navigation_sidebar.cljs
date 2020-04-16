@@ -165,6 +165,7 @@
         follow-publishers-list (drv/react s :follow-publishers-list)
         show-users-list? user-is-part-of-the-team?
         follow-boards-list (drv/react s :follow-boards-list)]
+    (js/console.log "DBG navigation-sidebar/render follow-publishers-list" follow-publishers-list)
     [:div.left-navigation-sidebar.group
       {:class (utils/class-set {:mobile-show-side-panel (drv/react s :mobile-navigation-sidebar)
                                 :absolute-position (not is-tall-enough?)
@@ -258,19 +259,14 @@
                 [:button.mlb-reset.left-navigation-sidebar-title
                   {:class (utils/class-set {:new (and @(::users-list-collapsed s)
                                                       (seq (mapcat :unread publisher-boards-change-data)))})
-                   :on-click #(nav-actions/show-follow-user-picker)
-                   :title "Follow your teammates"
-                   :data-placement "top"
-                   :data-toggle (when-not is-mobile? "tooltip")
-                   :data-container "body"}
+                   :on-click #(toggle-collapse-users s)}
                   [:span.sections "People"]])
-              (when show-invite-people?
-                [:button.left-navigation-sidebar-top-title-button.people-plus-bt.btn-reset
-                  {:on-click #(nav-actions/show-org-settings :invite-picker)
-                   :title "Invite more teammates"
-                   :data-placement "top"
-                   :data-toggle (when-not is-mobile? "tooltip")
-                   :data-container "body"}])]])
+              [:button.left-navigation-sidebar-top-title-button.people-plus-bt.btn-reset
+                {:on-click #(nav-actions/show-follow-user-picker)
+                 :title "Follow your teammates"
+                 :data-placement "top"
+                 :data-toggle (when-not is-mobile? "tooltip")
+                 :data-container "body"}]]])
         (when show-users-list?
           [:div.left-navigation-sidebar-items.group
             (for [user follow-publishers-list
@@ -297,7 +293,7 @@
                     (:short-name user)]]])])
         ;; Boards list
         (when show-boards
-          [:div.left-navigation-sidebar-top.group
+          [:div.left-navigation-sidebar-top.top-margin.group
             ;; Boards header
             [:h3.left-navigation-sidebar-top-title.group
               [:button.mlb-reset.left-navigation-sidebar-title-arrow
@@ -308,19 +304,14 @@
                 [:button.mlb-reset.left-navigation-sidebar-title
                   {:class (utils/class-set {:new (and @(::sections-list-collapsed s)
                                                       (seq (mapcat :unread boards-change-data)))})
-                   :data-toggle (when-not is-mobile? "tooltip")
-                   :data-placement "top"
-                   :data-container "body"
-                   :title "Follow the topics you care about"
-                   :on-click #(nav-actions/show-follow-board-picker)}
+                   :on-click #(toggle-collapse-sections s)}
                   [:span.sections "Boards"]])
-              (when create-link
-                [:button.left-navigation-sidebar-top-title-button.btn-reset
-                  {:on-click #(nav-actions/show-section-add)
-                   :title "Create a new section"
-                   :data-placement "top"
-                   :data-toggle (when-not is-mobile? "tooltip")
-                   :data-container "body"}])]])
+              [:button.left-navigation-sidebar-top-title-button.btn-reset
+                {:on-click #(nav-actions/show-follow-board-picker)
+                 :title "Follow the topics you care about"
+                 :data-placement "top"
+                 :data-toggle (when-not is-mobile? "tooltip")
+                 :data-container "body"}]]])
         (when (seq follow-boards-list)
           [:div.left-navigation-sidebar-items.group
             (for [board follow-boards-list

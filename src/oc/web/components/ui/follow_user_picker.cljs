@@ -39,9 +39,8 @@
 
 (defn- filter-user [s user q]
   (or (not (seq q))
-      (and (not (utils/in? @(::users s) (:user-id user)))
-           (or (search-user user q)
-               (some (partial search-user user) (string/split q #"\s"))))))
+      (search-user user q)
+      (some (partial search-user user) (string/split q #"\s"))))
 
 (defn- filter-sort-users [s current-user-id users q]
   (sort-users current-user-id (filterv #(filter-user s % (string/lower q)) users)))
@@ -149,11 +148,15 @@
                       (user-avatar-image u)
                       [:span.follow-user-picker-user
                         (:name u)]]])]
-              [:button.mlb-reset.follow-user-picker-create-bt
-                {:on-click #(follow! s)
-                 :disabled (or (= @(::users s) @(::initial-users s))
-                               @(::saving s))
-                 :data-toggle (when-not is-mobile? "tooltip")
-                 :data-placement "top"
-                 :title "Save & close"}
-                "Follow"]])]]]))
+              [:div.follow-user-picker-footer.group
+                [:button.mlb-reset.invite-user-bt
+                  {:on-click #(nav-actions/show-section-add)}
+                  "Invite people"]
+                [:button.mlb-reset.follow-user-picker-create-bt
+                  {:on-click #(follow! s)
+                   :disabled (or (= @(::users s) @(::initial-users s))
+                                 @(::saving s))
+                   :data-toggle (when-not is-mobile? "tooltip")
+                   :data-placement "top"
+                   :title "Save & close"}
+                  "Follow"]]])]]]))
