@@ -306,6 +306,19 @@
                                                    }})
         (target)))
 
+(deftask wut-staging-electron
+  "Carrot electron app loading wut.carrot.io"
+  []
+  (set-env! :dependencies #(into % '[[binaryage/devtools "0.9.8"]]))
+  (comp (cljs :ids #{"electron/main"}
+              :optimizations :simple
+              :compiler-options {:closure-defines {'oc.electron.main/dev?        false
+                                                   'oc.electron.main/web-origin  "https://wut.carrot.io"
+                                                   'oc.electron.main/auth-origin "https://wut-auth.carrot.io"
+                                                   'oc.electron.main/sentry-dsn  "https://4fd29f94a9304f11bdc71484d06f8f71@o23653.ingest.sentry.io/5211105"
+                                                   }})
+        (target)))
+
 (deftask staging-electron-windows
   "Carrot electron app loading staging.carrot.io"
   []
@@ -316,6 +329,19 @@
                                                    'oc.electron.main/web-origin  "https://staging.carrot.io"
                                                    'oc.electron.main/auth-origin "https://staging-auth.carrot.io"
                                                    'oc.electron.main/sentry-dsn  "https://d4318ef3fbba49668211f37c56157a19@sentry.io/1509179"
+                                                   }})
+        (target)))
+
+(deftask wut-staging-electron-windows
+  "Carrot electron app loading wut.carrot.io"
+  []
+  (set-env! :dependencies #(into % '[[binaryage/devtools "0.9.8"]]))
+  (comp (cljs :ids #{"electron\\main"}
+              :optimizations :simple
+              :compiler-options {:closure-defines {'oc.electron.main/dev?        false
+                                                   'oc.electron.main/web-origin  "https://wut.carrot.io"
+                                                   'oc.electron.main/auth-origin "https://wut-auth.carrot.io"
+                                                   'oc.electron.main/sentry-dsn  "https://4fd29f94a9304f11bdc71484d06f8f71@o23653.ingest.sentry.io/5211105"
                                                    }})
         (target)))
 
