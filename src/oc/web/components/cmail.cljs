@@ -813,13 +813,6 @@
                           "Save & Close"
                           "Close")}]])
           (when-not is-fullscreen?
-            [:div.fullscreen-bt-container
-              [:button.mlb-reset.fullscreen-bt
-                {:on-click #(cmail-actions/cmail-toggle-fullscreen)
-                 :data-toggle (if is-mobile? "" "tooltip")
-                 :data-placement "auto"
-                 :title "Fullscreen"}]])
-          (when-not is-fullscreen?
             [:div.delete-bt-container
               [:button.mlb-reset.delete-bt
                 {:on-click #(delete-clicked s % cmail-data)
