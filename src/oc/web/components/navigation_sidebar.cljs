@@ -36,19 +36,25 @@
       (when (not= height @(::content-height s))
         (reset! (::content-height s) height)))))
 
-(defn- toggle-collapse-sections [s]
-  (let [next-value (not @(::sections-list-collapsed s))]
-    (cook/set-cookie! (router/collapse-sections-list-cookie) next-value (* 60 60 24 365))
-    (reset! (::sections-list-collapsed s) next-value)
-    (reset! (::content-height s) nil)
-    (utils/after 100 #(save-content-height s))))
+(defn- toggle-collapse-boards [s & [force-show]]
+  (let [next-value (not @(::boards-list-collapsed s))]
+    (when (or (not force-show)
+              (and force-show
+                   (not next-value)))
+      (cook/set-cookie! (router/collapse-boards-list-cookie) next-value (* 60 60 24 365))
+      (reset! (::boards-list-collapsed s) next-value)
+      (reset! (::content-height s) nil)
+      (utils/after 100 #(save-content-height s)))))
 
-(defn- toggle-collapse-users [s]
+(defn- toggle-collapse-users [s & [force-show]]
   (let [next-value (not @(::users-list-collapsed s))]
-    (cook/set-cookie! (router/collapse-users-list-cookie) next-value (* 60 60 24 365))
-    (reset! (::users-list-collapsed s) next-value)
-    (reset! (::content-height s) nil)
-    (utils/after 100 #(save-content-height s))))
+    (when (or (not force-show)
+              (and force-show
+                   (not next-value)))
+      (cook/set-cookie! (router/collapse-users-list-cookie) next-value (* 60 60 24 365))
+      (reset! (::users-list-collapsed s) next-value)
+      (reset! (::content-height s) nil)
+      (utils/after 100 #(save-content-height s)))))
 
 (defn filter-board [board-data]
   (let [self-link (utils/link-for (:links board-data) "self")]
@@ -75,23 +81,40 @@
 
 (def drafts-board-prefix (-> utils/default-drafts-board :uuid (str "-")))
 
+(defn- check-and-reopen-follow-lists [s v]
+  (let [local-follow-list-last-added @(::follow-list-last-added s)
+        follow-list-last-added @(drv/get-ref s :follow-list-last-added)]
+    (when (not= local-follow-list-last-added follow-list-last-added)
+      (let [changed (atom #{})]
+        (doseq [[k v] follow-list-last-added]
+          (when (not= v (get local-follow-list-last-added k))
+            (swap! changed conj k)))
+        (when (@changed :user)
+          (toggle-collapse-users s true))
+        (when (@changed :board)
+          (toggle-collapse-boards s true))
+        (reset! (::follow-list-last-added s) follow-list-last-added)))))
+
 (rum/defcs navigation-sidebar < rum/reactive
                                 ;; Derivatives
                                 (drv/drv :org-data)
                                 (drv/drv :board-data)
-                                (drv/drv :change-data)
+                                ; (drv/drv :change-data)
                                 (drv/drv :current-user-data)
                                 (drv/drv :mobile-navigation-sidebar)
                                 (drv/drv :drafts-data)
                                 (drv/drv :follow-publishers-list)
                                 (drv/drv :follow-boards-list)
+                                (drv/drv :follow-list-last-added)
                                 ;; Locals
                                 (rum/local false ::content-height)
                                 (rum/local nil ::window-height)
                                 (rum/local nil ::window-width)
                                 (rum/local nil ::last-mobile-navigation-panel)
-                                (rum/local false ::sections-list-collapsed)
-                                (rum/local false ::users-list-collapsed)
+                                (rum/local nil ::boards-list-collapsed)
+                                (rum/local nil ::users-list-collapsed)
+                                (rum/local nil ::last-reopen-list)
+                                (rum/local nil ::follow-list-last-added)
                                 ;; Mixins
                                 ui-mixins/first-render-mixin
                                 (ui-mixins/render-on-resize save-window-size)
@@ -99,15 +122,17 @@
                                 {:will-mount (fn [s]
                                   (save-window-size s)
                                   (save-content-height s)
-                                  (reset! (::sections-list-collapsed s) (= (cook/get-cookie (router/collapse-sections-list-cookie)) "true"))
-                                  ;; Default users list to collapsed unless cookie says it
-                                  (reset! (::users-list-collapsed s) (not= (cook/get-cookie (router/collapse-users-list-cookie)) "false"))
+                                  (reset! (::boards-list-collapsed s) (= (cook/get-cookie (router/collapse-boards-list-cookie)) "true"))
+                                  (reset! (::users-list-collapsed s) (= (cook/get-cookie (router/collapse-users-list-cookie)) "true"))
                                   s)
                                  :before-render (fn [s]
                                   (nux-actions/check-nux)
                                   s)
                                  :did-mount (fn [s]
                                   (save-content-height s)
+                                  s)
+                                 :did-remount (fn [o s]
+                                  (check-and-reopen-follow-lists s "did-remount")
                                   s)
                                  :will-update (fn [s]
                                   (save-content-height s)
@@ -124,14 +149,15 @@
                                           (do
                                             (dom-utils/unlock-page-scroll)
                                             (reset! (::last-mobile-navigation-panel s) false))))))
+                                  (check-and-reopen-follow-lists s "will-update")
                                   s)}
   [s]
   (let [org-data (drv/react s :org-data)
         board-data (drv/react s :board-data)
         current-user-data (drv/react s :current-user-data)
-        change-data (drv/react s :change-data)
-        filtered-change-data (into {} (filter #(and (-> % first (s/starts-with? drafts-board-prefix) not)
-                                                    (not= % (:uuid org-data))) change-data))
+        ; change-data (drv/react s :change-data)
+        ; filtered-change-data (into {} (filter #(and (-> % first (s/starts-with? drafts-board-prefix) not)
+        ;                                             (not= % (:uuid org-data))) change-data))
         left-navigation-sidebar-width (- responsive/left-navigation-sidebar-width 20)
         all-boards (:boards org-data)
         boards (filter-boards all-boards)
@@ -160,7 +186,7 @@
         is-mobile? (responsive/is-mobile-size?)
         is-tall-enough? (not (neg? (- @(::window-height s) sidebar-top-margin @(::content-height s))))
         drafts-data (drv/react s :drafts-data)
-        all-unread-items (mapcat :unread (vals filtered-change-data))
+        ; all-unread-items (mapcat :unread (vals filtered-change-data))
         user-role (user-store/user-role org-data current-user-data)
         is-admin-or-author? (#{:admin :author} user-role)
         show-invite-people? (and org-slug
@@ -171,7 +197,7 @@
     [:div.left-navigation-sidebar.group
       {:class (utils/class-set {:mobile-show-side-panel (drv/react s :mobile-navigation-sidebar)
                                 :absolute-position (not is-tall-enough?)
-                                :collapsed-sections @(::sections-list-collapsed s)
+                                :collapsed-boards @(::boards-list-collapsed s)
                                 :collapsed-users @(::users-list-collapsed s)})
        :on-click #(when-not (utils/event-inside? % (rum/ref-node s :left-navigation-sidebar-content))
                     (dis/dispatch! [:input [:mobile-navigation-sidebar] false]))
@@ -204,7 +230,7 @@
              :on-click #(nav-actions/nav-to-url! % "all-posts" (oc-urls/all-posts))}
             [:div.all-posts-icon]
             [:div.all-posts-label
-              {:class (utils/class-set {:new (seq all-unread-items)})}
+              ; {:class (utils/class-set {:new (seq all-unread-items)})}
               "All"]
             ; (when (pos? (count all-unread-items))
             ;   [:span.count (count all-unread-items)])
@@ -246,13 +272,14 @@
               [:button.mlb-reset.left-navigation-sidebar-title-arrow
                 {:class (utils/class-set {:collapsed @(::users-list-collapsed s)})
                  :on-click #(toggle-collapse-users s)}]
-              (let [user-ids (map :user-id follow-publishers-list)
-                    publisher-boards-change-data (map (partial get change-data) user-ids)]
+              (let [; user-ids (map :user-id follow-publishers-list)
+                    ; publisher-boards-change-data (map (partial get change-data) user-ids)
+                    ]
                 [:button.mlb-reset.left-navigation-sidebar-title
-                  {:class (utils/class-set {:new (and @(::users-list-collapsed s)
-                                                      (seq (mapcat :unread publisher-boards-change-data)))})
+                  {; :class (utils/class-set {:new (and @(::users-list-collapsed s)
+                   ;                                    (seq (mapcat :unread publisher-boards-change-data)))})
                    :on-click #(toggle-collapse-users s)}
-                  [:span.sections "People"]])
+                  [:span.boards "People"]])
               [:button.left-navigation-sidebar-top-ellipsis-bt.btn-reset
                 {:on-click #(nav-actions/show-follow-user-picker)
                  :title "People directory"
@@ -266,11 +293,12 @@
                   :let [user-url (oc-urls/contributions org-slug (:user-id user))
                         is-current-user (and (router/current-contributions-id)
                                              (= (:user-id user) (router/current-contributions-id)))
-                        board (some #(when (and (:publisher-board %)
-                                                (= (-> % :author :user-id) (:user-id user)))
-                                       %)
-                               all-boards)
-                        board-change-data (when board (get change-data (:uuid board)))]
+                        ; board (some #(when (and (:publisher-board %)
+                        ;                         (= (-> % :author :user-id) (:user-id user)))
+                        ;                %)
+                        ;        all-boards)
+                        ; board-change-data (when board (get change-data (:uuid board)))
+                        ]
                   :when (or (not @(::users-list-collapsed s))
                             is-current-user)]
               [:a.left-navigation-sidebar-item.hover-item.contributions
@@ -282,7 +310,7 @@
                 [:div.board-name.group
                   (user-avatar-image user)
                   [:div.internal
-                    {:class (when (seq (:unread board-change-data)) "new")}
+                    ; {:class (when (seq (:unread board-change-data)) "new")}
                     (:short-name user)]]])])
         ;; Boards list
         (when show-boards
@@ -290,15 +318,16 @@
             ;; Boards header
             [:h3.left-navigation-sidebar-top-title.group
               [:button.mlb-reset.left-navigation-sidebar-title-arrow
-                {:class (utils/class-set {:collapsed @(::sections-list-collapsed s)})
-                 :on-click #(toggle-collapse-sections s)}]
-              (let [follow-board-uuids (map :uuid follow-boards-list)
-                    boards-change-data (map (partial get change-data) follow-board-uuids)]
+                {:class (utils/class-set {:collapsed @(::boards-list-collapsed s)})
+                 :on-click #(toggle-collapse-boards s)}]
+              (let [; follow-board-uuids (map :uuid follow-boards-list)
+                    ; boards-change-data (map (partial get change-data) follow-board-uuids)
+                    ]
                 [:button.mlb-reset.left-navigation-sidebar-title
-                  {:class (utils/class-set {:new (and @(::sections-list-collapsed s)
-                                                      (seq (mapcat :unread boards-change-data)))})
-                   :on-click #(toggle-collapse-sections s)}
-                  [:span.sections "Teams"]])
+                  {; :class (utils/class-set {:new (and @(::boards-list-collapsed s)
+                   ;                                    (seq (mapcat :unread boards-change-data)))})
+                   :on-click #(toggle-collapse-boards s)}
+                  [:span.boards "Teams"]])
               [:button.left-navigation-sidebar-top-title-button.btn-reset
                 {:on-click #(nav-actions/show-section-add)
                  :title "New team"
@@ -321,8 +350,9 @@
                                               (not is-home)
                                               (not is-bookmarks)
                                               (= selected-slug (:slug board)))
-                        board-change-data (get change-data (:uuid board))]
-                  :when (or (not @(::sections-list-collapsed s))
+                        ; board-change-data (get change-data (:uuid board))
+                        ]
+                  :when (or (not @(::boards-list-collapsed s))
                             is-current-board)]
               [:a.left-navigation-sidebar-item.hover-item
                 {:class (utils/class-set {:item-selected is-current-board})
@@ -336,7 +366,7 @@
                                             :private-board (= (:access board) "private")
                                             :team-board (= (:access board) "team")})}
                   [:div.internal
-                    {:class (utils/class-set {:new (seq (:unread board-change-data))
+                    {:class (utils/class-set {; :new (seq (:unread board-change-data))
                                               :has-icon (#{"public" "private"} (:access board))})
                      :key (str "board-list-" (name (:slug board)) "-internal")
                      :dangerouslySetInnerHTML (utils/emojify (or (:name board) (:slug board)))}]]
