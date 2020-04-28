@@ -477,8 +477,8 @@
                     (cmail-actions/cmail-hide)))
         unpublished? (not= (:status cmail-data) "published")
         post-button-title (if (= (:status cmail-data) "published")
-                            "Save update"
-                            "Share update")
+                            "Save"
+                            "Update")
         did-pick-section (fn [board-data note dismiss-action]
                            (reset! (::show-sections-picker s) false)
                            (dis/dispatch! [:input [:show-sections-picker] false])
@@ -579,6 +579,7 @@
              #(activity-actions/remove-attachment :cmail-data %))
             (rich-body-editor {:on-change (partial body-on-change s)
                                :use-inline-media-picker true
+                               :static-positioned-media-picker true
                                :media-picker-initially-visible false
                                :initial-body @(::initial-body s)
                                :show-placeholder @(::show-placeholder s)
