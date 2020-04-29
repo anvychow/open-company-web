@@ -13,6 +13,10 @@
             [oc.web.lib.responsive :as responsive]
             [oc.web.utils.comment :as comment-utils]))
 
+(def headline-placeholder "Add a title")
+
+(def empty-headline (char 8203)) ; U+200B a Unicode zero width space, used to mark comment messages originating with OC
+
 ;; Posts separators
 
 (defn show-separators?
@@ -277,6 +281,26 @@
       [has-images cleaned-body])
     [false inner-html]))
 
+(defn has-attachments? [data]
+  (seq (:attachments data)))
+
+(defn has-headline? [data]
+  (let [trimmed-headline (clojure.string/trim (:headline data))]
+    (or (clojure.string/blank? trimmed-headline)
+        (not= trimmed-headline empty-headline))))
+
+(defn has-body? [data]
+  (not (clojure.string/blank? (:body data))))
+
+(defn has-text? [data]
+  (or (has-headline? data)
+      (has-body? data)))
+
+(defn has-content? [data]
+  (or (some? (:video-id data))
+      (has-attachments? data)
+      (has-text? data)))
+
 (defn fix-entry
   "Add `:read-only`, `:board-slug`, `:board-name` and `:content-type` keys to the entry map."
   ([entry-data board-data changes]
@@ -310,17 +334,21 @@
       (assoc :stream-view-body stream-view-body)
       (assoc :body-has-images has-images)
       (assoc :fixed-video-id fixed-video-id)
+      (assoc :has-headline (has-headline? entry-data))
       (assoc :comments (comment-utils/sort-comments (:comments entry-data)))))))
 
 (defn fix-board
   "Parse board data coming from the API."
   ([board-data]
-   (fix-board board-data {} (dis/active-users)))
+   (fix-board board-data {} (dis/active-users) (dis/follow-boards-list)))
 
   ([board-data change-data]
-   (fix-board board-data change-data (dis/active-users)))
+   (fix-board board-data change-data (dis/active-users) (dis/follow-boards-list)))
 
-  ([board-data change-data active-users & [direction]]
+  ([board-data change-data active-users]
+   (fix-board board-data change-data active-users (dis/follow-boards-list)))
+
+  ([board-data change-data active-users follow-boards-list & [direction]]
     (let [links (:links board-data)
           with-read-only (assoc board-data :read-only (readonly-board? links))
           with-fixed-activities (reduce #(assoc-in %1 [:fixed-items (:uuid %2)]
@@ -366,21 +394,26 @@
                              with-posts-list)
           with-posts-separators (if (show-separators? (:slug board-data))
                                   (assoc with-saved-items :items-to-render (grouped-posts with-saved-items))
-                                  (assoc with-saved-items :items-to-render (:posts-list with-saved-items)))]
-      with-posts-separators)))
+                                  (assoc with-saved-items :items-to-render (:posts-list with-saved-items)))
+          follow-board-uuids (set (map :uuid follow-boards-list))
+          with-following (assoc with-posts-separators :following (boolean (follow-board-uuids (:uuid board-data))))]
+      with-following)))
 
 (defn fix-contributions
   "Parse data coming from the API for a certain user's posts."
   ([contributions-data]
-   (fix-contributions contributions-data {} (dis/org-data) (dis/active-users)))
+   (fix-contributions contributions-data {} (dis/org-data) (dis/active-users) (dis/follow-publishers-list)))
 
   ([contributions-data change-data]
-   (fix-contributions contributions-data change-data (dis/org-data) (dis/active-users)))
+   (fix-contributions contributions-data change-data (dis/org-data) (dis/active-users) (dis/follow-publishers-list)))
 
   ([contributions-data change-data org-data]
-   (fix-contributions contributions-data change-data org-data (dis/active-users)))
+   (fix-contributions contributions-data change-data org-data (dis/active-users) (dis/follow-publishers-list)))
 
-  ([contributions-data change-data org-data active-users & [direction]]
+  ([contributions-data change-data org-data active-users]
+   (fix-contributions contributions-data change-data org-data active-users (dis/follow-publishers-list)))
+
+  ([contributions-data change-data org-data active-users follow-publishers-list & [direction]]
     (let [all-boards (:boards org-data)
           with-fixed-activities (reduce (fn [ret item]
                                           (let [board-data (first (filterv #(= (:slug %) (:board-slug item))
@@ -423,8 +456,10 @@
                              with-posts-list)
           with-posts-separators (if (show-separators? (:href contributions-data))
                                   (assoc with-saved-items :items-to-render (grouped-posts with-saved-items))
-                                  (assoc with-saved-items :items-to-render (:posts-list with-saved-items)))]
-      with-posts-separators)))
+                                  (assoc with-saved-items :items-to-render (:posts-list with-saved-items)))
+          follow-publishers-ids (set (map :user-id follow-publishers-list))
+          with-following (assoc with-posts-separators :following (boolean (follow-publishers-ids (:author-uuid contributions-data))))]
+      with-following)))
 
 (defn fix-container
   "Parse container data coming from the API, like All posts or Must see."
@@ -529,24 +564,6 @@
     (if section-slug
       (cook/set-cookie! last-board-cookie section-slug (* 60 60 24 365))
       (cook/remove-cookie! last-board-cookie))))
-
-(defn has-attachments? [data]
-  (seq (:attachments data)))
-
-(defn has-headline? [data]
-  (not (clojure.string/blank? (:headline data))))
-
-(defn has-body? [data]
-  (not (clojure.string/blank? (:body data))))
-
-(defn has-text? [data]
-  (or (has-headline? data)
-      (has-body? data)))
-
-(defn has-content? [data]
-  (or (some? (:video-id data))
-      (has-attachments? data)
-      (has-text? data)))
 
 (def iso-format (time-format/formatters :date-time))
 
