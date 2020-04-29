@@ -116,6 +116,7 @@
                  (rum/local :all ::list-view) ;; :seen :unseen
                  (rum/local {} ::sending-notice)
                  (rum/local true ::show-remind-all-bt)
+                 (rum/local (rum/create-ref) ::search-field)
 
                  mixins/no-scroll-mixin
                  mixins/first-render-mixin
@@ -128,7 +129,7 @@
                   :after-render (fn [s]
                    (when @(::search-active s)
                       (when (compare-and-set! (::search-focused s) false true)
-                        (.focus (rum/ref-node s :search-field))))
+                        (.focus (rum/deref @(::search-field s)))))
                    s)}
   [s org-data]
   (let [activity-data (drv/react s :wrt-activity-data)
@@ -152,22 +153,24 @@
         seen-percent (int (* (/ (count seen-users) (count all-users)) 100))
         team-id (:team-id org-data)
         slack-bot-data (first (jwt/team-has-bot? team-id))
+        popup-ref (rum/create-ref)
+        wrt-pop-up-tabs (rum/create-ref)
         remind-all-users (filterv #(and (not (get @(::sending-notice s) (:user-id %)))
                                         (not= (:user-id %) (:user-id current-user-data)))
                           unseen-users)]
     [:div.wrt-popup-container
       {:on-click #(if @(::list-view-dropdown-open s)
-                    (when-not (utils/event-inside? % (rum/ref-node s :wrt-pop-up-tabs))
+                    (when-not (utils/event-inside? % (rum/deref wrt-pop-up-tabs))
                       (reset! (::list-view-dropdown-open s) false))
-                    (when-not (utils/event-inside? % (rum/ref-node s :wrt-popup))
+                    (when-not (utils/event-inside? % (rum/deref popup-ref))
                       (nav-actions/hide-wrt)))}
       [:button.mlb-reset.modal-close-bt
         {:on-click nav-actions/hide-wrt}]
       [:div.wrt-popup
         {:class (utils/class-set {:loading (not (:reads read-data))})
-         :ref :wrt-popup
+         :ref popup-ref
          :on-click #(when @(::list-view-dropdown-open s)
-                      (when-not (utils/event-inside? % (rum/ref-node s :wrt-pop-up-tabs))
+                      (when-not (utils/event-inside? % (rum/deref wrt-pop-up-tabs))
                         (reset! (::list-view-dropdown-open s) false))
                         (utils/event-stop %))}
         [:div.wrt-popup-header
@@ -241,7 +244,7 @@
                      :title "Send a reminder to everyone that hasn’t opened it"}
                     "Send reminders"])]]
             [:div.wrt-popup-tabs
-              {:ref :wrt-pop-up-tabs}
+              {:ref wrt-pop-up-tabs}
               [:div.wrt-popup-tabs-select.oc-input
                 {:on-click #(swap! (::list-view-dropdown-open s) not)
                  :class (when @(::list-view-dropdown-open s) "active")}
@@ -264,7 +267,7 @@
                   {:value @query
                    :type "text"
                    :placeholder "Search by name..."
-                   :ref :search-field
+                   :ref @(::search-field s)
                    :on-key-up #(when (= (.-key %) "Escape")
                                  (reset-search s))
                    :on-change #(reset! query (.. % -target -value))}]])
@@ -316,8 +319,7 @@
         reads-count (:count reads-data)]
     [:div.wrt-count-container
       [:div.wrt-count
-        {:ref :wrt-count
-         :on-click #(nav-actions/show-wrt item-id)
+        {:on-click #(nav-actions/show-wrt item-id)
          :class (when (pos? (count (:reads reads-data))) "has-read-list")}
         (if (pos? reads-count)
           (str reads-count
