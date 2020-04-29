@@ -16,9 +16,9 @@
     ;; Rum React Frameworks
     ;; Didn't update to 15.5.4+ just yet since it requires some changes to oc.web.rum-utils to remove .-PropTypes access
     ;; and some change to omcljs/om to not use createClass anymore. See React docs for more info.
-    [cljsjs/react "16.11.0-0"] ; A Javascript library for building user interfaces https://github.com/cljsjs/packages
-    [cljsjs/react-dom "16.11.0-0"] ; A Javascript library for building user interfaces https://github.com/cljsjs/packages
-    [rum "0.11.4" :exclusions [cljsjs/react cljsjs/react-dom]] ; https://github.com/tonsky/rum
+    [cljsjs/react "16.13.0-0"] ; A Javascript library for building user interfaces https://github.com/cljsjs/packages
+    [cljsjs/react-dom "16.13.0-0"] ; A Javascript library for building user interfaces https://github.com/cljsjs/packages
+    [rum "0.11.5" :exclusions [cljsjs/react cljsjs/react-dom]] ; https://github.com/tonsky/rum
     [org.martinklepsch/derivatives "0.3.1-alpha"] ; Chains of derived data https://github.com/martinklepsch/derivatives
     [cljs-flux "0.1.2"] ; Flux implementation for Om https://github.com/kgann/cljs-flux
 
@@ -151,8 +151,8 @@
                           'test.oc.web.components.ui.user-avatar]
              :cljs-opts {:optimizations :whitespace
                          :foreign-libs [{:provides ["cljsjs.react"]
-                                         :file "https://cdnjs.cloudflare.com/ajax/libs/react/16.11.0/cjs/react.development.js"
-                                         :file-min "https://cdnjs.cloudflare.com/ajax/libs/react/16.11.0/cjs/react.development.js"}
+                                         :file "https://cdnjs.cloudflare.com/ajax/libs/react/16.13.0/cjs/react.development.js"
+                                         :file-min "https://cdnjs.cloudflare.com/ajax/libs/react/16.13.0/cjs/react.development.js"}
                                         {:provides ["cljsjs.raven"]
                                          :file "https://cdnjs.cloudflare.com/ajax/libs/raven.js/3.17.0/raven.min.js"
                                          :file-min "https://cdnjs.cloudflare.com/ajax/libs/raven.js/3.17.0/raven.min.js"}]}))
