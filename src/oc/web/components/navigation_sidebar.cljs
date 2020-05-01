@@ -122,7 +122,7 @@
                                 {:will-mount (fn [s]
                                   (save-window-size s)
                                   (save-content-height s)
-                                  (reset! (::boards-list-collapsed s) (= (cook/get-cookie (router/collapse-boards-list-cookie)) "true"))
+                                  (reset! (::boards-list-collapsed s) (not= (cook/get-cookie (router/collapse-boards-list-cookie)) "false"))
                                   (reset! (::users-list-collapsed s) (= (cook/get-cookie (router/collapse-users-list-cookie)) "true"))
                                   s)
                                  :before-render (fn [s]
@@ -174,8 +174,8 @@
         drafts-link (utils/link-for (:links drafts-board) "self")
         show-following (and user-is-part-of-the-team?
                             (utils/link-for (:links org-data) "following"))
-        show-all-posts (and user-is-part-of-the-team?
-                            (utils/link-for (:links org-data) "entries"))
+        show-all-posts false ;(and user-is-part-of-the-team?
+                             ;     (utils/link-for (:links org-data) "entries"))
         show-bookmarks (and user-is-part-of-the-team?
                             (utils/link-for (:links org-data) "bookmarks")
                             (integer? (:bookmarks-count org-data)))
@@ -192,7 +192,9 @@
         show-invite-people? (and org-slug
                                  is-admin-or-author?)
         follow-publishers-list (drv/react s :follow-publishers-list)
-        show-users-list? user-is-part-of-the-team?
+        show-users-list? (and user-is-part-of-the-team?
+                              follow-publishers-list
+                              (pos? (count follow-publishers-list)))
         follow-boards-list (drv/react s :follow-boards-list)]
     [:div.left-navigation-sidebar.group
       {:class (utils/class-set {:mobile-show-side-panel (drv/react s :mobile-navigation-sidebar)
@@ -218,7 +220,7 @@
             [:div.home-icon]
             [:div.home-label
               ; {:class (utils/class-set {:new (seq all-unread-items)})}
-              "Following"]
+              "Wut"]
             ; (when (pos? (count all-unread-items))
             ;   [:span.count (count all-unread-items)])
             ])
@@ -243,7 +245,7 @@
              :on-click #(nav-actions/nav-to-url! % "bookmarks" (oc-urls/bookmarks))}
             [:div.bookmarks-icon]
             [:div.bookmarks-label
-              "Saved"]
+              "Bookmarks"]
             (when (pos? (:bookmarks-count org-data))
               [:span.count (:bookmarks-count org-data)])])
         ;; Drafts
@@ -282,7 +284,7 @@
                    :title "People you follow"
                    :data-placement "top"
                    :data-toggle (when-not is-mobile? "tooltip")}
-                  [:span.boards "People"]])
+                  [:span.boards "Favorites"]])
               [:button.left-navigation-sidebar-top-ellipsis-bt.btn-reset
                 {:on-click #(nav-actions/show-follow-user-picker)
                  :title "People directory"
@@ -333,7 +335,7 @@
                    :title "Teams you follow"
                    :data-placement "top"
                    :data-toggle (when-not is-mobile? "tooltip")}
-                  [:span.boards "Teams"]])
+                  [:span.boards "Feeds"]])
               [:button.left-navigation-sidebar-top-title-button.btn-reset
                 {:on-click #(nav-actions/show-section-add)
                  :title "New team"
