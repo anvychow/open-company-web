@@ -27,7 +27,11 @@
        (not (:publisher-board board))
        (or (not (seq q))
            (search-board board q)
-           (some (partial search-board board) (string/split q #"\s")))))
+           (some (partial search-board board) (string/split q #"\s"))
+           (and (= q "follow")
+                (:follow board))
+           (and (= q "unfollow")
+                (not (:follow board))))))
 
 (defn- filter-sort-boards [s boards q]
   (sort-boards (filterv #(filter-board s % (string/lower q)) boards)))
@@ -57,8 +61,8 @@
         with-follow (map #(assoc % :follow (utils/in? follow-boards-list (:uuid %))) all-boards)
         sorted-boards (filter-sort-boards s with-follow @(::query s))
         is-mobile? (responsive/is-mobile-size?)
-        following-boards (filter #(->> % :uuid (utils/in? follow-boards-list)) sorted-boards)
-        unfollowing-boards (filter #(->> % :uuid (utils/in? follow-boards-list) not) sorted-boards)]
+        following-boards (filter :follow sorted-boards)
+        unfollowing-boards (filter (comp not :follow) sorted-boards)]
     [:div.follow-board-picker
       [:div.follow-board-picker-modal
         [:button.mlb-reset.modal-close-bt
@@ -66,31 +70,37 @@
         [:div.follow-board-picker-header
           [:button.mlb-reset.create-board-bt
             {:on-click #(nav-actions/show-section-add)}
-            "Create a new feed"]
+            "Create a new topic"]
           [:h3.follow-board-picker-title
-            "Feeds"]]
+            "Curate your Home feed"]]
         [:div.follow-board-picker-body
+          [:div.follow-board-tabs
+            [:button.mlb-reset.follow-board-tab.active
+              "Topics"]
+            [:button.mlb-reset.follow-board-tab
+              {:on-click #(nav-actions/show-follow-user-picker)}
+              "People"]]
           (if (zero? (count all-boards))
             [:div.follow-board-picker-empty-boards
               [:div.follow-board-picker-empty-icon]
               [:div.follow-board-picker-empty-copy
-                "There are no feeds to follow yet. "
+                "There are no topics to follow yet. "
                 (when (utils/link-for (:links org-data) "create")
                   [:button.mlb-reset.follow-board-picker-empty-invite-bt
                     {:on-click #(nav-actions/show-org-settings :invite-picker)}
-                    "Add a feed to get started."])]]
+                    "Add a topic to get started."])]]
             [:div.follow-board-picker-body-inner.group
               [:input.follow-board-picker-search-field-input.oc-input
                 {:value @(::query s)
                  :type "text"
                  :ref :query
-                 :placeholder "Find a feed..."
+                 :placeholder "Topics..."
                  :on-change #(reset! (::query s) (.. % -target -value))}]
               [:div.follow-board-picker-boards-list.group
                 ;; Following
-                (when (seq following-boards)
-                  [:div.follow-board-picker-row-header
-                    (str "Following (" (count following-boards) ")")])
+                ; (when (seq following-boards)
+                ;   [:div.follow-board-picker-row-header
+                ;     (str "Following (" (count following-boards) ")")])
                 (when (seq following-boards)
                   (for [b following-boards]
                     [:div.follow-board-picker-board-row.group
@@ -105,9 +115,9 @@
                             "No followers")])
                       (follow-button {:following true :resource-type :board :resource-uuid (:uuid b)})]))
                 ;; Unfollowing
-                (when (seq unfollowing-boards)
-                  [:div.follow-board-picker-row-header
-                    (str "Other feeds (" (count unfollowing-boards) ")")])
+                ; (when (seq unfollowing-boards)
+                ;   [:div.follow-board-picker-row-header
+                ;     (str "Other topics (" (count unfollowing-boards) ")")])
                 (when (seq unfollowing-boards)
                   (for [b unfollowing-boards]
                     [:div.follow-board-picker-board-row.group

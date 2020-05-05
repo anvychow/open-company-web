@@ -7,7 +7,6 @@ div.follow-board-picker {
   height: 100vh;
   position: fixed;
   overflow: visible;
-  padding: 24px;
   text-transform: none;
   background-color: $carrot_modal_bg;
   z-index: #{$navbar_zindex + 156};
@@ -18,10 +17,12 @@ div.follow-board-picker {
 
   @include mobile() {
     height: 100vh;
+    padding: 24px;
   }
 
   div.follow-board-picker-modal {
     width: #{$modal_width}px;
+    height: calc(100vh - 40px - 32px);
     background-color: var(--overlay-background-color);
     margin: 40px auto 32px;
     padding: 0;
@@ -129,7 +130,7 @@ div.follow-board-picker {
         color: var(--color);
         margin: 0;
         padding: 0;
-        width: 100px;
+        width: 30vw;
         position: absolute;
         left: 50%;
         top: 12px;
@@ -151,7 +152,60 @@ div.follow-board-picker {
     }
     
     div.follow-board-picker-body {
-      padding: 40px 120px 66px;
+      padding: 16px 120px 66px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      max-height: calc(100% - #{$navbar_height}px);
+      min-height: 200px;
+
+      @include mobile() {
+        overflow-x: initial;
+        overflow-y: initial;
+        max-height: initial;
+        min-height: initial;
+      }
+
+      div.follow-board-tabs {
+        width: 100%;
+        height: 40px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-flow: row nowrap;
+        margin-bottom: 16px;
+
+        button.follow-board-tab {
+          width: 120px;
+          text-align: center;
+          height: 40px;
+          font-size: 18px;
+          @include OC_Body_Bold();
+          line-height: 40px;
+          border-radius: 4px;
+
+          background-color: var(--overlay-background-color);
+          color: $wut_purple;
+          border: 1px solid $wut_purple;
+          opacity: 1;
+
+          &:nth-child(1) {
+            margin-left: auto;
+            margin-right: 8px;
+          }
+
+          &:nth-child(2) {
+            margin-right: auto;
+            margin-left: 8px;
+          }
+
+          &.active {
+            background-color: $wut_purple;
+            color: white;
+            border: 1px solid $wut_purple;
+            text-decoration: underline;
+          }
+        }
+      }
 
       div.follow-board-picker-subtitle {
         @include OC_Body_Book();
@@ -227,6 +281,11 @@ div.follow-board-picker {
             color: var(--light-color);
             font-size: 14px;
             line-height: 24px;
+            background-image: cdnUrl("/img/ML/wrt_search_lens.svg");
+            background-size: 12px 12px;
+            background-position: left calc(50% - 36px) top 5px;
+            background-repeat: no-repeat;
+            text-align: center;
           }
         }
 
