@@ -87,6 +87,7 @@
    :comment-parent-uuid parent-uuid
    :placeholder (if parent-uuid "Reply…" "Add a comment…")
    :use-inline-media-picker true
+   :static-positioned-media-picker true
    :media-picker-initially-visible false})
 
 (defn add-comment-did-change [s]
@@ -125,7 +126,7 @@
     (if @(::did-change s)
       (let [alert-data {:icon "/img/ML/trash.svg"
                         :action "cancel-comment-edit"
-                        :message "Are you sure you want to cancel? All your changes to this comment will be lost."
+                        :message "Are you sure you want to cancel? Your comment will be lost."
                         :link-button-title "Keep"
                         :link-button-cb #(alert-modal/hide-alert)
                         :solid-button-style :red
@@ -236,10 +237,12 @@
         current-user-data (drv/react s :current-user-data)
         container-class (str "add-comment-box-container-" @(::add-comment-id s))
         is-focused? (should-focus-field? s)
-        should-hide-post-button (and ;; Hide post button for replies, not for root comment
+        should-hide-post-button (and ;; Show initially collapsed box for:
+                                     ;; - first add comment (always visible in post page)
+                                     ;; - Activity view (expand on click or focus)
                                      (or (not parent-comment-uuid)
-                                         collapsed?)
-                                     (not @(::show-post-button s))
+                                         (and collapsed?
+                                              (not @(::show-post-button s))))
                                      (not is-focused?)
                                      (au/empty-body? @(::initial-add-comment s)))
         is-mobile? (responsive/is-mobile-size?)
@@ -249,7 +252,8 @@
         add-comment-class (str "add-comment-" @(::add-comment-id s))]
     [:div.add-comment-box-container
       {:class (utils/class-set {container-class true
-                                :collapsed-box should-hide-post-button})}
+                                :collapsed-box should-hide-post-button})
+       :on-click #(reset! (::show-post-button s) true)}
       [:div.add-comment-box
         [:div.add-comment-internal
           {:class (when-not should-hide-post-button "active")}
@@ -277,22 +281,8 @@
             :content-editable true
             :dangerouslySetInnerHTML #js {"__html" @(::initial-add-comment s)}}]
           [:div.add-comment-footer.group
-            [:button.mlb-reset.close-reply-bt
-              {:on-click #(close-reply-clicked s)
-               :data-toggle (if (responsive/is-tablet-or-mobile?) "" "tooltip")
-               :data-placement "top"
-               :data-container "body"
-               :title (if edit-comment-data "Cancel edit" "Close")}]
-            [:button.mlb-reset.send-btn
-              {:on-click #(when-not @(::add-button-disabled s)
-                            (send-clicked % s))
-               :disabled @(::add-button-disabled s)
-               :class (when uploading? "separator-line")}
-              (if edit-comment-data
-                "Save"
-                "Reply")]
             (emoji-picker {:add-emoji-cb #(add-comment-did-change s)
-                           :width 32
+                           :width 24
                            :height 32
                            :position "top"
                            :default-field-selector (str "div." add-comment-class)
@@ -301,7 +291,21 @@
               [:div.upload-progress
                 (small-loading)
                 [:span.attachment-uploading
-                  (str "Uploading " (or (:progress attachment-uploading) 0) "%...")]])]]
+                  (str "Uploading " (or (:progress attachment-uploading) 0) "%...")]])
+            [:button.mlb-reset.send-btn
+              {:on-click #(when-not @(::add-button-disabled s)
+                            (send-clicked % s))
+               :disabled @(::add-button-disabled s)
+               :class (when uploading? "separator-line")}
+              (if edit-comment-data
+                "Save"
+                "Reply")]
+            [:button.mlb-reset.close-reply-bt
+              {:on-click #(close-reply-clicked s)
+               :data-toggle (if (responsive/is-tablet-or-mobile?) "" "tooltip")
+               :data-placement "top"
+               :data-container "body"
+               :title (if edit-comment-data "Cancel edit" "Cancel")}]]]
         (when @(:me/showing-media-video-modal s)
           [:div.video-container
             {:ref :video-container}
