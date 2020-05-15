@@ -93,12 +93,15 @@
 (defn add-comment-key [org-slug]
   (vec (concat (org-key org-slug) [:add-comment-data])))
 
-(defn add-comment-string-key [activity-uuid & [parent-comment-uuid comment-uuid]]
-  (str activity-uuid
-    (when parent-comment-uuid
-      (str "-" parent-comment-uuid))
-    (when comment-uuid
-      (str "-" comment-uuid))))
+(defn add-comment-string-key
+  ([activity-uuid] (add-comment-string-key activity-uuid nil nil))
+  ([activity-uuid parent-comment-uuid] (add-comment-string-key activity-uuid parent-comment-uuid nil))
+  ([activity-uuid parent-comment-uuid comment-uuid]
+   (str activity-uuid
+     (when parent-comment-uuid
+       (str "-" parent-comment-uuid))
+     (when comment-uuid
+       (str "-" comment-uuid)))))
 
 (def add-comment-force-update-root-key :add-comment-force-update)
 
@@ -284,7 +287,6 @@
    :panel-stack         [[:base] (fn [base] (:panel-stack base))]
    :current-panel       [[:panel-stack] (fn [panel-stack] (last panel-stack))]
    :mobile-navigation-sidebar [[:base] (fn [base] (:mobile-navigation-sidebar base))]
-   ; :activity-view [[:base] (fn [base] (:activity-view base))]
    :expand-image-src    [[:base] (fn [base] (:expand-image-src base))]
    :attachment-uploading [[:base] (fn [base] (:attachment-uploading base))]
    :add-comment-force-update [[:base] (fn [base] (get base add-comment-force-update-root-key))]
