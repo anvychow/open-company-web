@@ -292,8 +292,9 @@
         (not= trimmed-headline empty-headline))))
 
 (defn empty-body? [body]
-  (or (s/blank? body)
-      (= body empty-body-html)))
+  (boolean
+   (or (s/blank? body)
+       (re-matches #"(?i)^\s*<p[^>]*><br\s*/?></p>\s*$" body))))
 
 (defn has-body? [data]
   (not (empty-body? (:body data))))
