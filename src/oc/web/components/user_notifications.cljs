@@ -79,10 +79,14 @@
     activity-data         :activity-data
     notifications         :notifications
     replies               :replies
+    open-item             :open-item
+    close-item            :close-item
     :as n}]
   (let [is-mobile? (responsive/is-mobile-size?)]
     [:div.user-notification.group
-      {:class    (utils/class-set {:unread (:unread n)})
+      {:class    (utils/class-set {:unread (:unread n)
+                                   :close-item close-item
+                                   :open-item open-item})
        :ref :user-notification
        :on-click (fn [e]
                    (let [user-notification-el (rum/ref-node s :user-notification)]
@@ -149,6 +153,7 @@
         (rum/with-key (add-comment {:activity-data activity-data
                                     :parent-comment-uuid (when (-> notifications count (= 1)) (-> notifications first :interaction-id))
                                     :collapsed? true
+                                    :add-comment-placeholder "Reply..."
                                     :add-comment-cb (partial user-actions/activity-reply-inline n)
                                     :add-comment-focus-prefix "thread-comment"})
          (str "adc-" "-" entry-id latest-notify-at)))]))
@@ -188,21 +193,28 @@
           [:div.user-notifications-tray-empty
             (all-caught-up)]
           (for [n user-notifications-data
-                :let [entry-id (:entry-id n)
-                      interaction-id (:interaction-id n)
-                      parent-interaction-id (:parent-interaction-id n)
-                      board-slug (:board-slug n)
-                      children-key (str "uni-" (:notify-at n)
-                                    (cond
-                                      (seq parent-interaction-id)
-                                      (str "-" parent-interaction-id)
-                                      (seq interaction-id)
-                                      (str "-" interaction-id)
-                                      (seq entry-id)
-                                      (str "-" entry-id)
-                                      (:reminder? n)
-                                      (str "-" (:uuid (:reminder n)))))]]
-            (rum/with-key (user-notification-item n) children-key)))]]))
+                :let [caught-up? (= (:resource-type n) :caught-up)]]
+            (if caught-up?
+              [:div.user-notification-caught-up
+                {:key (str "uni-caught-up-" (:latest-notify-at n))}
+                (all-caught-up "You are all caught up!")]
+              (let [entry-id (:entry-id n)
+                    interaction-id (:interaction-id n)
+                    parent-interaction-id (:parent-interaction-id n)
+                    board-slug (:board-slug n)
+                    children-key (str "uni-" (:latest-notify-at n)
+                                  (cond
+                                    (seq parent-interaction-id)
+                                    (str "-" parent-interaction-id)
+                                    (seq interaction-id)
+                                    (str "-" interaction-id)
+                                    (seq entry-id)
+                                    (str "-" entry-id)
+                                    (:reminder? n)
+                                    (str "-" (:uuid (:reminder n)))))]
+                (rum/with-key
+                 (user-notification-item n)
+                 children-key)))))]]))
 
 (defn- close-tray [s]
   (reset! (::tray-open s) false)

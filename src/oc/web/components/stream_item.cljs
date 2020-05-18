@@ -31,10 +31,12 @@
   (if (seq (:abstract activity-data))
     [:div.stream-item-body.oc-mentions
       {:data-itemuuid (:uuid activity-data)
+       :class (when-not (:has-headline activity-data) "no-headline")
        :dangerouslySetInnerHTML {:__html (:abstract activity-data)}}]
     [:div.stream-item-body.no-abstract.oc-mentions
       {:data-itemuuid (:uuid activity-data)
        :ref :item-body
+       :class (when-not (:has-headline activity-data) "no-headline")
        :dangerouslySetInnerHTML {:__html (:body activity-data)}}]))
 
 (defn win-width []
@@ -132,15 +134,8 @@
                            (am/foc-truncate-element-mixin :item-body
                             (fn [s]
                               (let [has-headline? (-> s :rum/args first :activity-data :has-headline)
-                                    is-mobile? (responsive/is-mobile-size?)
-                                    lines (cond (and has-headline?
-                                                     is-mobile?)
-                                                2
-                                                (or is-mobile? has-headline?)
-                                                3
-                                                :else
-                                                4)]
-                                (* 22 lines)))))
+                                    height (+ (* 2 22) (if has-headline? 0 28))]
+                                height))))
                          ui-mixins/strict-refresh-tooltips-mixin
                          {:will-mount (fn [s]
                            (calc-video-height s)
