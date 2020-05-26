@@ -9,7 +9,6 @@
             [oc.web.utils.user :as user-utils]
             [oc.web.lib.utils :as utils]
             [oc.web.lib.cookies :as cook]
-            [oc.web.lib.ziggeo :as ziggeo]
             [oc.web.lib.responsive :as responsive]
             [oc.web.utils.comment :as comment-utils]))
 
@@ -332,8 +331,6 @@
           is-uploading-video? (dis/uploading-video-data (:video-id entry-data))
           fixed-video-id (:video-id entry-data)
           fixed-publisher (get active-users (-> entry-data :publisher :user-id))]
-      (when (seq fixed-video-id)
-        (ziggeo/init-ziggeo true))
       (-> entry-data
         (assoc :content-type "entry")
         (update :publisher merge fixed-publisher)
@@ -587,6 +584,7 @@
                        ;; In case we are parsing a fresh response from server
                        (remove nil? (map :uuid (:items threads-data)))
                        ;; If we are re-parsing existing data for updated related data
+                       ;; let's remove the separators
                        ;; ie: change, org or active-users
                        (filter string? (:threads-list threads-data)))
           threads-list (vec (case direction
@@ -601,7 +599,8 @@
                                         (concat to-items [(caught-up-map (last to-items))] from-items)
                                         (recur (vec (conj to-items (first from-items)))
                                                (rest from-items)))))]
-      (doseq [e @entries] (utils/after 0 #(comment-utils/get-comments e)))
+      (doseq [e @entries]
+        (utils/after 0 #(comment-utils/get-comments e)))
       (-> with-fixed-items
        (dissoc :old-links :entries :items)
        (assoc :links fixed-next-links)

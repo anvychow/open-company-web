@@ -108,6 +108,7 @@
                   [:div.thread-comment-author-name
                     {:class (when (:user-id (:author comment-data)) "clickable-name")}
                     (:name (:author comment-data))]]
+                [:div.separator-dot]
                 [:div.thread-comment-author-timestamp
                   [:time
                     {:date-time (:created-at comment-data)
@@ -133,21 +134,20 @@
                   emoji-picker]
                 [:div.thread-comment-floating-buttons
                   ;; Reply to comment
-                  (when (:reply-parent comment-data)
-                    [:button.mlb-reset.floating-bt.reply-bt.separator-bt
-                      {:data-toggle "tooltip"
-                       :data-placement "top"
-                       :on-click reply-cb
-                       :title "Reply"}
-                      "Reply"])
+                  ; (when (:reply-parent comment-data)
+                  ;   [:button.mlb-reset.floating-bt.reply-bt.separator-bt
+                  ;     {:data-toggle "tooltip"
+                  ;      :data-placement "top"
+                  ;      :on-click reply-cb
+                  ;      :title "Reply"}
+                  ;     "Reply"])
                   ;; React container
                   [:div.react-bt-container.separator-bt
                     [:button.mlb-reset.floating-bt.react-bt
                       {:data-toggle "tooltip"
                        :data-placement "top"
                        :title "Add reaction"
-                       :on-click react-cb}
-                      "React"]
+                       :on-click react-cb}]
                     emoji-picker]])]]
           [:div.thread-comment-content
             [:div.thread-comment-body.oc-mentions.oc-mentions-hover
@@ -212,7 +212,8 @@
                           ;; Count the read comments and remove one since last is always rendered
                           (if (= read-count replies-count)
                             (dec read-count)
-                            read-count))]
+                            read-count))
+        thread-loaded? (contains? n :thread-children)]
     [:div.thread-item.group
       {:class    (utils/class-set {:unread unread
                                    :close-item close-item
@@ -245,47 +246,50 @@
                            :member? member?
                            :replies-count replies-count
                            :current-user-id current-user-id})
-          (when-not (contains? n :thread-children)
-            [:div.thread-item-loading
-              (small-loading)
-              "Loading thread..."])
-          (when (and (not @(::expanded s))
-                     (pos? collapsed-count))
-            [:button.mlb-reset.expand-thead-bt
-              {:on-click #(reset! (::expanded s) true)}
-              (str "View " collapsed-count " older repl" (if (not= collapsed-count 1) "ies" "y"))])
-          (for [idx (range (count replies))
-                :let [r (get replies idx)
-                      ind-showing-picker? (and (seq @(::show-picker s))
-                                               (= @(::show-picker s) (:uuid r)))
-                      unread-reply? (au/comment-unread? (:created-at r) (:last-read-at activity-data))
-                      reply-data (assoc r :unread unread-reply?)]
-                :when (or (< collapsed-count 1)
-                          unread-reply?
-                          (= (dec (count replies)) idx))]
+          (if-not thread-loaded?
             [:div.thread-item-block.horizontal-line.group
-              {:key (str "unir-" (:created-at r) "-" (:uuid r))}
-              (thread-comment {:activity-data activity-data
-                               :comment-data reply-data
-                               :is-indented-comment? true
-                               :is-mobile? is-mobile?
-                               :react-cb #(reset! (::show-picker s) (:uuid r))
-                               :reply-cb #(reply-to s (cu/add-comment-focus-value add-comment-focus-prefix resource-uuid comment-uuid))
-                               :emoji-picker (when ind-showing-picker?
-                                               (emoji-picker-container s activity-data r))
-                               :showing-picker? ind-showing-picker?
-                               :new-thread? unread
-                               :member? member?
-                               :current-user-id current-user-id})])]]
-
-      (rum/with-key (add-comment {:activity-data activity-data
-                                  :parent-comment-uuid comment-uuid
-                                  :collapsed? true
-                                  :add-comment-placeholder "Reply..."
-                                  :add-comment-cb (partial user-actions/activity-reply-inline n)
-                                  :add-comment-focus-prefix add-comment-focus-prefix
-                                  :dismiss-reply-cb #(reset! (::replying s) false)})
-       (str "adc-" resource-uuid  last-activity-at))]))
+              [:div.thread-item-loading.group
+                (small-loading)
+                [:span.thread-item-loading-inner
+                  "Loading thread..."]]]
+            [:div.group
+              (when (and (not @(::expanded s))
+                         (pos? collapsed-count))
+                [:button.mlb-reset.expand-thead-bt
+                  {:on-click #(reset! (::expanded s) true)}
+                  (str "View " collapsed-count " older repl" (if (not= collapsed-count 1) "ies" "y"))])
+              (for [idx (range (count replies))
+                    :let [r (get replies idx)
+                          ind-showing-picker? (and (seq @(::show-picker s))
+                                                   (= @(::show-picker s) (:uuid r)))
+                          unread-reply? (au/comment-unread? (:created-at r) (:last-read-at activity-data))
+                          reply-data (assoc r :unread unread-reply?)]
+                    :when (or (< collapsed-count 1)
+                              unread-reply?
+                              (= (dec (count replies)) idx))]
+                [:div.thread-item-block.horizontal-line.group
+                  {:key (str "unir-" (:created-at r) "-" (:uuid r))}
+                  (thread-comment {:activity-data activity-data
+                                   :comment-data reply-data
+                                   :is-indented-comment? true
+                                   :is-mobile? is-mobile?
+                                   :react-cb #(reset! (::show-picker s) (:uuid r))
+                                   :reply-cb #(reply-to s (cu/add-comment-focus-value add-comment-focus-prefix resource-uuid comment-uuid))
+                                   :emoji-picker (when ind-showing-picker?
+                                                   (emoji-picker-container s activity-data r))
+                                   :showing-picker? ind-showing-picker?
+                                   :new-thread? unread
+                                   :member? member?
+                                   :current-user-id current-user-id})])])]]
+      (when thread-loaded?
+        (rum/with-key (add-comment {:activity-data activity-data
+                                    :parent-comment-uuid comment-uuid
+                                    :collapsed? true
+                                    :add-comment-placeholder "Reply..."
+                                    :add-comment-cb (partial user-actions/activity-reply-inline n)
+                                    :add-comment-focus-prefix add-comment-focus-prefix
+                                    :dismiss-reply-cb #(reset! (::replying s) false)})
+         (str "adc-" resource-uuid  last-activity-at)))]))
 
 (defn- expand-thread [s comment-data]
   (let [threads @(::threads s)
@@ -318,4 +322,4 @@
                (str "thread-" (:resource-uuid item) "-" (:uuid item)))))
           (when loading-more
             [:div.loading-updates.bottom-loading
-              "Loading more posts..."])])]))
+              "Loading more threads..."])])]))
