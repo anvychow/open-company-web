@@ -20,8 +20,10 @@
         title]
       (when post-tt-kw
         [:div.post-bt-tooltip
-          (cond
-            (= post-tt-kw :title)
-            missing-title-tooltip
-            (= post-tt-kw :abstract)
-            abstract-max-length-exceeded-tooltip)])]])
+          [:div.tooltip-arrow]
+          [:div.tooltip-inner
+            (cond
+              (= post-tt-kw :title)
+              missing-title-tooltip
+              (= post-tt-kw :abstract)
+              abstract-max-length-exceeded-tooltip)]])]])
