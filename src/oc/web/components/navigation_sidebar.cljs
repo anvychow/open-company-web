@@ -82,7 +82,7 @@
 
 (def drafts-board-prefix (-> utils/default-drafts-board :uuid (str "-")))
 
-(defn- check-and-reopen-follow-lists [s v]
+(defn- check-and-reopen-follow-lists [s]
   (let [local-follow-list-last-added @(::follow-list-last-added s)
         follow-list-last-added @(drv/get-ref s :follow-list-last-added)]
     (when (not= local-follow-list-last-added follow-list-last-added)
@@ -100,7 +100,7 @@
                                 ;; Derivatives
                                 (drv/drv :org-data)
                                 (drv/drv :board-data)
-                                ; (drv/drv :change-data)
+                                (drv/drv :change-data)
                                 (drv/drv :unread-threads)
                                 (drv/drv :current-user-data)
                                 (drv/drv :mobile-navigation-sidebar)
@@ -134,7 +134,7 @@
                                   (save-content-height s)
                                   s)
                                  :did-remount (fn [o s]
-                                  (check-and-reopen-follow-lists s "did-remount")
+                                  (check-and-reopen-follow-lists s)
                                   s)
                                  :will-update (fn [s]
                                   (save-content-height s)
@@ -151,15 +151,15 @@
                                           (do
                                             (dom-utils/unlock-page-scroll)
                                             (reset! (::last-mobile-navigation-panel s) false))))))
-                                  (check-and-reopen-follow-lists s "will-update")
+                                  (check-and-reopen-follow-lists s)
                                   s)}
   [s]
   (let [org-data (drv/react s :org-data)
         board-data (drv/react s :board-data)
         current-user-data (drv/react s :current-user-data)
-        ; change-data (drv/react s :change-data)
-        ; filtered-change-data (into {} (filter #(and (-> % first (s/starts-with? drafts-board-prefix) not)
-        ;                                             (not= % (:uuid org-data))) change-data))
+        change-data (drv/react s :change-data)
+        filtered-change-data (into {} (filter #(and (-> % first (s/starts-with? drafts-board-prefix) not)
+                                                    (not= % (:uuid org-data))) change-data))
         left-navigation-sidebar-width (- responsive/left-navigation-sidebar-width 20)
         all-boards (:boards org-data)
         boards (filter-boards all-boards)
@@ -197,7 +197,7 @@
         is-mobile? (responsive/is-mobile-size?)
         is-tall-enough? (not (neg? (- @(::window-height s) sidebar-top-margin @(::content-height s))))
         drafts-data (drv/react s :drafts-data)
-        ; all-unread-items (mapcat :unread (vals filtered-change-data))
+        all-unread-items (mapcat :unread (vals filtered-change-data))
         follow-publishers-list (drv/react s :follow-publishers-list)
         show-users-list? (and false ;; Remove users list from sidebar or now
                               user-is-part-of-the-team?
@@ -236,9 +236,9 @@
             [:div.nav-link-label
               ; {:class (utils/class-set {:new (seq all-unread-items)})}
               "Home"]
-            ; (when (pos? (count all-unread-items))
-            ;   [:span.count (count all-unread-items)])
-            ])
+            (when (pos? (count all-unread-items))
+              ; [:span.count (count all-unread-items)]
+              [:span.unread-dot])])
         (when show-threads
           [:a.nav-link.threads-view.hover-item.group
             {:class (utils/class-set {:item-selected is-threads
@@ -250,7 +250,7 @@
             [:div.nav-link-icon]
             [:div.nav-link-label
               ; {:class (utils/class-set {:new (seq all-unread-items)})}
-              "Direct"]
+              "Threads"]
               (when (pos? unread-threads)
                 [:span.unread-dot])])
         ;; You
