@@ -15,8 +15,9 @@
             [oc.web.actions.section :as section-actions]
             [oc.web.actions.activity :as activity-actions]
             [oc.web.components.stream-item :refer (stream-item)]
-            [oc.web.actions.contributions :as contributions-actions]
             [oc.web.components.threads-list :refer (threads-list)]
+            [oc.web.actions.contributions :as contributions-actions]
+            [oc.web.components.ui.all-caught-up :refer (caught-up-line)]
             [oc.web.components.stream-collapsed-item :refer (stream-collapsed-item)]
             [goog.events :as events]
             [goog.events.EventType :as EventType]
@@ -154,6 +155,12 @@
      :class (when (= foc-layout dis/default-foc-layout) "expanded-list")}
     label])
 
+(rum/defc caught-up-wrapper < rum/static
+  [{:keys [style item]}]
+  [:div.caught-up-wrapper
+    {:style style}
+    (caught-up-line item)])
+
 (defn- get-item [items idx show-loading-more show-carrot-close]
   (let [loading-more? (and show-loading-more
                            (= idx (count items)))
@@ -166,27 +173,26 @@
                (nth items idx))
         separator-item? (and (not loading-more?)
                              (not carrot-close?)
-                             (= (:content-type item) "separator"))]
+                             (= (:content-type item) :separator))]
     (cond
      loading-more?
-     {:content-type "loading-more"}
+     {:content-type :loading-more}
      carrot-close?
-     {:content-type "carrot-close"}
+     {:content-type :carrot-close}
      :else
      item)))
 
 (rum/defcs virtualized-stream < rum/static
                                 rum/reactive
                                 (rum/local nil ::last-force-list-update)
-                                (drv/drv :force-list-update)
                                 (rum/local false ::mounted)
                                {:did-mount (fn [s]
                                  (reset! (::mounted s) true)
                                  s)
-                                :did-update (fn [s]
+                                :did-remount (fn [o s]
                                  (when @(::mounted s)
-                                   (when-let [force-list-update @(drv/get-ref s :force-list-update)]
-                                     (when (not= @(::last-force-list-update s) force-list-update)
+                                   (when-let [force-list-update (-> s :rum/args first :force-list-update)]
+                                     (when-not (= @(::last-force-list-update s) force-list-update)
                                        (reset! (::last-force-list-update s) force-list-update)
                                        (.recomputeRowHeights (rum/ref s :virtualized-list-comp)))))
                                  s)
@@ -198,7 +204,8 @@
              foc-layout
              show-loading-more
              show-carrot-close
-             is-mobile?]
+             is-mobile?
+             force-list-update]
       :as derivatives}
      virtualized-props]
   (let [{:keys [height
@@ -206,19 +213,20 @@
                 onChildScroll
                 scrollTop
                 registerChild]} (js->clj virtualized-props :keywordize-keys true)
-        _force-list-update (drv/react s :force-list-update)
         key-prefix (if is-mobile? "mobile" foc-layout)
         rowHeight (fn [row-props]
                     (let [{:keys [index]} (js->clj row-props :keywordize-keys true)
                           item (get-item items index show-loading-more show-carrot-close)]
                       (case (:content-type item)
-                        "separator"
+                        :caught-up
+                        64
+                        :separator
                         (if (= foc-layout dis/other-foc-layout)
                           foc-separators-height
                           (- foc-separators-height 8))
-                        "loading-more"
+                        :loading-more
                         (if is-mobile? 44 60)
-                        "carrot-close"
+                        :carrot-close
                         carrot-close-height
                         ; else
                         (calc-card-height is-mobile? foc-layout))))
@@ -229,17 +237,19 @@
                                      isVisible
                                      style] :as row-props} (js->clj row-props :keywordize-keys true)
                              item (get-item items index show-loading-more show-carrot-close)
-                             reads-data (when (= (:content-type item) "entry")
+                             reads-data (when (= (:content-type item) :entry)
                                           (get activities-read (:uuid item)))
                              row-key (str key-prefix "-" key)
                              next-item (get-item items (inc index) show-loading-more show-carrot-close)
                              prev-item (get-item items (dec index) show-loading-more show-carrot-close)]
                          (case (:content-type item)
-                           "carrot-close"
+                           :caught-up
+                           (rum/with-key (caught-up-wrapper {:item item :style style}) (str "caught-up-" (:last-activity-at item)))
+                           :carrot-close
                            (rum/with-key (carrot-close row-props) (str "carrot-close-" row-key))
-                           "loading-more"
+                           :loading-more
                            (rum/with-key (load-more row-props) (str "loading-more-" row-key))
-                           "separator"
+                           :separator
                            (rum/with-key (separator-item (assoc row-props :foc-layout foc-layout) item) (str "separator-item-" row-key))
                            ; else
                            (rum/with-key
@@ -248,10 +258,10 @@
                                                                   :reads-data reads-data
                                                                   :open-item (or (= index 0)
                                                                                  (and prev-item
-                                                                                      (#{"loading-more" "carrot-close" "separator"} (:content-type prev-item))))
+                                                                                      (not= (:content-type prev-item) :entry)))
                                                                   :close-item (or (= index (count items))
                                                                                   (not next-item)
-                                                                                  (not= (:content-type next-item) "entry"))
+                                                                                  (not= (:content-type next-item) :entry))
                                                                   :foc-layout foc-layout
                                                                   :is-mobile is-mobile?}))
                             row-key))))]
@@ -287,6 +297,7 @@
                         (drv/drv :editable-boards)
                         (drv/drv :foc-layout)
                         (drv/drv :current-user-data)
+                        (drv/drv :force-list-update)
                         ;; Locals
                         (rum/local nil ::scroll-listener)
                         (rum/local (.. js/document -scrollingElement -scrollTop) ::last-scroll)
@@ -296,7 +307,7 @@
                         ;; Mixins
                         mixins/first-render-mixin
                         section-mixins/container-nav-in
-                        section-mixins/window-focus-auto-loader
+                        ; section-mixins/window-focus-auto-loader
 
                         {:will-mount (fn [s]
                           (reset! (::last-foc-layout s) @(drv/get-ref s :foc-layout))
@@ -337,6 +348,7 @@
         activities-read (drv/react s :activities-read)
         foc-layout (drv/react s :foc-layout)
         current-user-data (drv/react s :current-user-data)
+        force-list-update (drv/react s :force-list-update)
         viewport-height (dom-utils/viewport-height)
         is-mobile? (responsive/is-mobile-size?)
         card-height (calc-card-height is-mobile? foc-layout)
@@ -356,6 +368,7 @@
                                          :comments-data comments-data
                                          :items items
                                          :is-mobile? is-mobile?
+                                         :force-list-update force-list-update
                                          :activities-read activities-read
                                          :editable-boards editable-boards
                                          :foc-layout foc-layout
