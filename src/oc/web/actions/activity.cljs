@@ -343,7 +343,7 @@
                  (dis/dispatch! [:update [edit-key ] #(merge % {:auto-saving false :has-changes true})])
                  (let [json-body (json->cljs body)
                        board-data (if (:entries json-body)
-                                    (au/fix-board json-body)
+                                    (au/parse-board json-body)
                                     false)
                        fixed-items (:fixed-items board-data)
                        entry-saved (if fixed-items
@@ -880,7 +880,8 @@
               (not (:loading activity-data)))
      (send-item-read (:uuid activity-data))
      (dis/dispatch! [:mark-read (router/current-org-slug) activity-data (utils/as-of-now)])
-     (inbox-dismiss (:uuid activity-data)))))
+     (inbox-dismiss (:uuid activity-data))
+     true)))
 
 ;; Video handling
 
