@@ -392,7 +392,7 @@
 
 (defn- mark-read-if-needed [s items-container offset-top item]
   (when-let [item-node (.querySelector items-container (str "div." (reply-item-unique-class item)))]
-    (when (dom-utils/is-element-top-in-viewport? item-node offset-top)
+    (when (dom-utils/is-element-bottom-in-viewport? item-node offset-top)
       (let [read (activity-actions/mark-read (:uuid item))]
         (when read
           (swap! (::read-items s) conj (:uuid item)))))))
@@ -404,11 +404,15 @@
             offset-top (if (responsive/is-mobile-size?) responsive/mobile-navbar-height responsive/navbar-height)]
         (doseq [item items
                 :when (and (= (:resource-type item) :entry)
+                           (seq (:last-read-at item))
                            (pos? (:new-comments-count item))
                            (not (@(::read-items s) (:uuid item))))]
           (mark-read-if-needed s items-container offset-top item))
         (when-not (some (comp pos? :new-comments-count) @(::entries s))
           (reset! (::has-unread-items s) false))))))
+
+(defn- mark-read-entries? [entries]
+  (some #(and (seq (:last-read-at %)) (pos? (:new-comments-count %))) entries))
 
 (rum/defcs replies-list <
   rum/reactive
@@ -428,7 +432,7 @@
                         {}
                         entries)]
      (reset! (::entries s) entries)
-     (reset! (::has-unread-items s) (some (comp pos? :new-comments-count) entries))
+     (reset! (::has-unread-items s) (mark-read-entries? entries))
      (reset! (::initial-last-read-at s) last-read-at))
     s)
    :did-mount (fn [s]
@@ -446,7 +450,7 @@
                             @(::initial-last-read-at s)
                             entries)]
          (reset! (::entries s) entries)
-         (reset! (::has-unread-items s) (some (comp pos? :new-comments-count) entries))
+         (reset! (::has-unread-items s) (mark-read-entries? entries))
          (reset! (::initial-last-read-at s) last-read-at)
          (utils/after 0 #(did-scroll s nil)))))
    s)}
