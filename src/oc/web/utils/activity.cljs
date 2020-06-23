@@ -525,7 +525,8 @@
           is-uploading-video? (dis/uploading-video-data (:video-id entry-data))
           fixed-video-id (:video-id entry-data)
           fixed-publisher (when published?
-                            (get active-users (-> entry-data :publisher :user-id)))]
+                            (get active-users (-> entry-data :publisher :user-id)))
+          org-data (dis/org-data)]
       (-> entry-data
         (assoc :resource-type :entry)
         (assoc :published? published?)
@@ -550,7 +551,8 @@
         (assoc :has-headline (has-headline? entry-data))
         (assoc :body-thumbnail (when (seq (:body entry-data))
                                  (html-lib/first-body-thumbnail (:body entry-data))))
-        (assoc :comments (cu/sort-comments (:comments entry-data))))))))
+        (as-> e
+          (update e :comments #(cu/sort-comments (map (partial parse-comment org-data e) %)))))))))
 
 (defn parse-org
   "Fix org data coming from the API."
@@ -749,20 +751,24 @@
             items-map (when (#{:following :replies} (:container-slug container-data))
                         (let [enriched-items-list (map (comp (:fixed-items with-fixed-activities) :uuid) full-items-list)]
                           (merge (:fixed-items with-fixed-activities) (zipmap (map :uuid enriched-items-list) enriched-items-list))))
-            ingnore-item-fn #(or (not= (:resource-type %) :entry)
-                                 (and (= (:resource-type %) :entry)
-                                      (->> % :uuid (get items-map) :publisher?)))
+            get-item #(merge (get items-map (:uuid %)) %)
+            ignore-item-fn (if (#{:following :unfollowing} (:container-slug container-data))
+                             #(or (not= (:resource-type %) :entry)
+                                  (and (= (:resource-type %) :entry)
+                                       (->> % get-item :publisher?)))
+                             #(not= (:resource-type %) :entry))
             check-item-fn (if (#{:following :unfollowing} (:container-slug container-data))
                             #(and (= (:resource-type %) :entry)
-                                  (->> % :uuid (get items-map) :unread not))
-                            #(let [item (get items-map (:uuid %))]
+                                  (->> % get-item :unread not))
+                            ;; (= (:container-slug container-data) :replies)
+                            #(let [item (get-item %)]
                                 (and (= (:resource-type item) :entry)
                                      (not (:unread item))
                                      (or (not (:new-comments-count item))
                                          (zero? (:new-comments-count item))))))
             opts {:has-next next-link}
             with-caught-up (if (#{:following :replies} (:container-slug container-data))
-                            (insert-caught-up grouped-items check-item-fn ingnore-item-fn opts)
+                            (insert-caught-up grouped-items check-item-fn ignore-item-fn opts)
                             grouped-items)
             with-open-close-items (insert-open-close-item with-caught-up #(not= (:resource-type %2) (:resource-type %3)))
             with-ending-item (insert-ending-item with-open-close-items next-link)
@@ -837,3 +843,49 @@
         show-year (or force-year (not= now-year timestamp-year))
         f (if show-year date-format-year date-format)]
     (time-format/unparse f d)))
+
+(defn update-all-containers [db org-data change-data active-users follow-publishers-list]
+  (let [org-slug (:slug org-data)
+        contributions-list-key (dis/contributions-list-key org-slug)
+        next-db*** (reduce (fn [tdb contrib-key]
+                              (let [rp-contrib-data-key (dis/contributions-data-key org-slug contrib-key dis/recently-posted-sort)
+                                    ra-contrib-data-key (dis/contributions-data-key org-slug contrib-key dis/recent-activity-sort)]
+                                (-> tdb
+                                 (update-in rp-contrib-data-key
+                                  #(dissoc (parse-contributions % change-data org-data active-users follow-publishers-list dis/recently-posted-sort) :fixed-items))
+                                 (update-in ra-contrib-data-key
+                                   #(dissoc (parse-contributions % change-data org-data active-users follow-publishers-list dis/recent-activity-sort) :fixed-items)))))
+                     db
+                     (keys (get-in db contributions-list-key)))
+        boards-key (dis/boards-key org-slug)
+        following-boards (dis/follow-boards-list org-slug db)
+        next-db** (reduce (fn [tdb board-key]
+                             (let [rp-board-data-key (dis/board-data-key org-slug board-key dis/recently-posted-sort)
+                                   ra-board-data-key (dis/board-data-key org-slug board-key dis/recent-activity-sort)]
+                               (-> tdb
+                                (update-in tdb rp-board-data-key
+                                 #(dissoc (parse-board % change-data active-users following-boards dis/recently-posted-sort) :fixed-items))
+                                (update-in tdb ra-board-data-key
+                                 #(dissoc (parse-board % change-data active-users following-boards dis/recent-activity-sort) :fixed-items)))))
+                    next-db***
+                    (keys (get-in db boards-key)))
+        containers-key (dis/containers-key org-slug)
+        next-db* (reduce (fn [tdb container-key]
+                            (let [rp-container-data-key (dis/container-key org-slug container-key dis/recently-posted-sort)
+                                  ra-container-data-key (dis/container-key org-slug container-key dis/recent-activity-sort)]
+                              (-> tdb
+                               (update-in rp-container-data-key
+                                #(dissoc (parse-container % change-data org-data active-users dis/recently-posted-sort) :fixed-items))
+                               (update-in ra-container-data-key
+                                #(dissoc (parse-container % change-data org-data active-users dis/recent-activity-sort) :fixed-items)))))
+                   next-db**
+                   (keys (get-in db containers-key)))
+        posts-key (dis/posts-data-key org-slug)
+        next-db (reduce (fn [tdb post-uuid]
+                         (let [post-data-key (concat posts-key [post-uuid])
+                               old-post-data (get-in tdb post-data-key)
+                               board-data (get-in tdb (dis/board-data-key org-slug (:board-slug old-post-data)))]
+                          (assoc-in tdb post-data-key (parse-entry old-post-data board-data change-data active-users))))
+                 next-db*
+                 (keys (get-in db posts-key)))]
+    (assoc-in next-db dis/force-list-update-key (utils/activity-uuid))))
