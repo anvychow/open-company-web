@@ -89,7 +89,7 @@
        :data-comment-uuid (:uuid comment-data)
        :data-unwrapped-body (:unwrapped-body comment-data)
        :data-unread (:unread comment-data)
-       :data-unwrapped-body-fn? (fn? unwrap-body-cb)
+       :data-unwrapped-body-fn (fn? unwrap-body-cb)
        :class (utils/class-set {:new-comment (:unread comment-data)
                                 :showing-picker showing-picker?
                                 :no-replies (zero? replies-count)
@@ -388,7 +388,7 @@
                         :add-comment-placeholder "Reply..."
                         :add-comment-cb #(do
                                            (entry-mark-read s)
-                                           (swap! (::collapsed-comments s) merge {(:uuid %) {:unread false :expanded true :unwrapped-body true}}))
+                                           (swap! (::replies s) merge {(:uuid %) {:unread false :expanded true :unwrapped-body true}}))
                         :add-comment-focus-prefix add-comment-focus-prefix})])]))
 
 (defn- mark-read-if-needed [s items-container offset-top item]
