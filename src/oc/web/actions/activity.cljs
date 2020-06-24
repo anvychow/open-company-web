@@ -748,13 +748,43 @@
 
 ;; Change reaction
 
-(defn- activity-change [section-uuid activity-uuid]
+(defn- activity-change [container-id activity-uuid]
   (let [org-data (dis/org-data)
-        section-data (first (filter #(= (:uuid %) section-uuid) (:boards org-data)))
+        section-data (first (filter #(= (:uuid %) container-id) (:boards org-data)))
         activity-data (dis/activity-data (:slug org-data) activity-uuid)
         editing-activity-data (:cmail-data @dis/app-state)]
     (when activity-data ;; if we have the activity in the app-state
       (get-entry activity-data))))
+
+;; Home badge
+
+(defn check-activity-for-badges [container-id activity-uuid]
+  ;; Reload the entry from the server and check if we need to turn on the badge for home
+  (let [org-slug (router/current-org-slug)
+        board-data (au/board-by-uuid container-id)]
+    (cmail-actions/get-entry-with-uuid (:slug board-data) activity-uuid
+     (fn [success status]
+       (when success
+         (let [activity-data (dis/activity-data activity-uuid)
+               follow-boards-list (dis/follow-boards-list org-slug)
+               is-published? (= (keyword (:status activity-data)) :published)
+               is-following? (or ;; if unfollow link is present it means the user is explicitly
+                                 ;; following the entry
+                                 (utils/link-for (:links activity-data) "unfollow")
+                                 ;; or if the board is followed by the user
+                                 ((set (map :uuid follow-boards-list)) container-id))
+               should-badge-home? (and is-published?
+                                       is-following?
+                                       ;; and the user has never read it
+                                       (:unread activity-data))
+               should-badge-replies? (and is-published?
+                                          is-following?
+                                          (or (:unread activity-data)
+                                              (pos? (:new-comments-count activity-data))))]
+           (when should-badge-home?
+             (dis/dispatch! [:home-badge/on org-slug]))
+           (when should-badge-replies?
+             (dis/dispatch! [:replies-badge/on org-slug]))))))))
 
 ;; Change service actions
 
@@ -762,7 +792,7 @@
   (ws-cc/subscribe :container/change
     (fn [data]
       (let [change-data (:data data)
-            section-uuid (:item-id change-data)
+            container-id (:item-id change-data)
             change-type (:change-type change-data)]
         ;; Refresh AP if user is looking at it
         (when (= (router/current-board-slug) "all-posts")
@@ -781,6 +811,9 @@
       (when (and (#{:dismiss :unread :follow :unfollow :comment-add} (:change-type (:data data)))
                  (= (-> data :data :user-id) (jwt/user-id)))
         (let [change-data (:data data)
+              org-slug (router/current-org-slug)
+              container-id (:container-id change-data)
+              board-data (au/board-by-uuid container-id)
               activity-uuid (:item-id change-data)
               change-type (:change-type change-data)
               inbox-action (:inbox-action change-data)]
@@ -788,16 +821,18 @@
             (= change-type :dismiss)
             (do
               (timbre/debug "Dismiss for" activity-uuid)
-              (dis/dispatch! [:inbox/dismiss (router/current-org-slug) activity-uuid])
+              (dis/dispatch! [:inbox/dismiss org-slug activity-uuid])
               (inbox-get (dis/org-data)))
             (= change-type :unread)
             (do
               (timbre/debug "Unread for" activity-uuid)
-              (dis/dispatch! [:inbox/unread (router/current-org-slug) (router/current-board-slug) activity-uuid])
+              (dis/dispatch! [:inbox/unread org-slug (:slug board-data) activity-uuid])
               (inbox-get (dis/org-data)))
             (= change-type :follow)
             (do
               (timbre/debug "Follow for" activity-uuid)
+              ;; Reload the entry from the server and check if we need to turn on the badge for home
+              (check-activity-for-badges container-id activity-uuid)
               (inbox-get (dis/org-data)))
             (= change-type :unfollow)
             (do
@@ -817,7 +852,7 @@
     (fn [data]
       (let [change-data (:data data)
             activity-uuid (:item-id change-data)
-            section-uuid (:container-id change-data)
+            container-id (:container-id change-data)
             change-type (:change-type change-data)
             ;; In case another user is adding a new post mark it as unread
             ;; directly to avoid delays in the newly added post propagation
@@ -827,7 +862,9 @@
                               (fn [{:keys [success]}]
                                 (when success
                                   (dis/dispatch! [:mark-unread (router/current-org-slug) {:uuid activity-uuid
-                                                                                          :board-uuid section-uuid}]))))]
+                                                                                          :board-uuid container-id}]))))]
+        (when (= change-type :add)
+          (check-activity-for-badges container-id activity-uuid))
         (when (= change-type :delete)
           (dis/dispatch! [:activity-delete (router/current-org-slug) {:uuid activity-uuid}]))
         ;; Refresh the AP in case of items added or removed
@@ -848,10 +885,10 @@
             (= (router/current-board-slug) "unfollowing")
             (unfollowing-get org-data dispatch-unread)
             :else
-            (sa/section-change section-uuid dispatch-unread)))
+            (sa/section-change container-id dispatch-unread)))
         ;; Refresh the activity in case of an item update
         (when (= change-type :update)
-          (activity-change section-uuid activity-uuid)))))
+          (activity-change container-id activity-uuid)))))
   (ws-cc/subscribe :item/counts
     (fn [data]
       (dis/dispatch! [:activities-count (router/current-org-slug) (:data data)])))
